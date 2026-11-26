@@ -17,12 +17,17 @@ function devour(g: Game, gran: Unit, card: CardInst) {
   g.heal(gran, 1);
 }
 
-/** 從葛蘭妮手牌選 1 張吞噬 */
+/** 我方有手牌的角色（吞噬來源） */
+const handOwners = (g: Game, u: Unit) => g.state.players[u.owner].units.filter(x => x.life !== 'dead' && x.hand.length > 0);
+
+/** 從我方任一角色的手牌選 1 張吞噬：先選角色，再選牌 */
 function* devourFromHand(g: Game, u: Unit, title: string): Eff<boolean> {
-  const pick = yield* g.chooseHandCards(u, title, 1, 1);
+  const from = yield* g.chooseUnit(u.owner, `${title}：先選要從誰的手牌吞`, handOwners(g, u));
+  if (!from) return false;
+  const pick = yield* g.chooseHandCards(from, `${title}：選 ${from.name} 的 1 張手牌`, 1, 1);
   if (!pick.length) return false;
-  const i = u.hand.findIndex(c => c.uid === pick[0]);
-  devour(g, u, u.hand.splice(i, 1)[0]);
+  const i = from.hand.findIndex(c => c.uid === pick[0]);
+  devour(g, u, from.hand.splice(i, 1)[0]);
   return true;
 }
 
@@ -59,11 +64,11 @@ const cards: CardDef[] = [
   },
   {
     id: 'gra_meal', charId: 'granny', name: '盤中餐', cost: 3,
-    text: '花費 1 [暴食] 吞噬 1 張牌，抽 1 張牌。',
+    text: '花費 1 [暴食] 吞噬我方 1 張手牌，抽 1 張牌。',
     *play(g, u) {
-      if (g.counter(u, G) >= 1 && u.hand.length > 0) {
+      if (g.counter(u, G) >= 1 && handOwners(g, u).length > 0) {
         spend(g, u, 1);
-        yield* devourFromHand(g, u, '盤中餐：選 1 張手牌吞噬');
+        yield* devourFromHand(g, u, '盤中餐');
       } else g.log(`${u.name} 沒有暴食或手牌，無法吞噬`, u.owner);
       g.draw(u, 1);
     },
@@ -81,16 +86,16 @@ const cards: CardDef[] = [
   },
   {
     id: 'gra_meat', charId: 'granny', name: '食肉', cost: 5, costFor: discount(5, 3),
-    text: '（吞噬的牌 ≥ 4 張時 -3 AP）打擊 1 名敵方單位，之後選擇：吞噬 1 張牌，或 +3 [暴食]。',
+    text: '（吞噬的牌 ≥ 4 張時 -3 AP）打擊 1 名敵方單位，之後選擇：吞噬我方 1 張手牌，或 +3 [暴食]。',
     *play(g, u) {
       const t = yield* g.chooseEnemy(u, '食肉：選擇打擊目標');
       if (t) { g.log(`${u.name} 打擊 ${t.name}`, u.owner); g.strikeOnce(u, t); }
       if (u.life !== 'alive') return;
       const opts = ['+3 暴食'];
-      if (u.hand.length) opts.unshift('吞噬 1 張手牌');
+      if (handOwners(g, u).length) opts.unshift('吞噬我方 1 張手牌');
       const o = opts.length > 1 ? yield* g.option(u.owner, '食肉：選擇效果', opts) : 0;
       if (opts[o] === '+3 暴食') gain(g, u, 3);
-      else yield* devourFromHand(g, u, '食肉：選 1 張手牌吞噬');
+      else yield* devourFromHand(g, u, '食肉');
     },
   },
   {

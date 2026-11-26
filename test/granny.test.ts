@@ -139,6 +139,24 @@ describe('葛蘭妮', () => {
   });
 });
 
+describe('盤中餐從隊友手牌吞噬', () => {
+  it('先選角色，再選那個角色的手牌', () => {
+    const g = newGame();
+    const [sav, gr] = g.state.players[0].units;
+    gr.ap = 3; gr.counters.gluttony = 1;
+    const meal = give(g, gr.id, 'gra_meal');
+    const target = sav.hand[0].uid;
+    const savBefore = sav.hand.length;
+    g.apply(0, { type: 'play', unitId: gr.id, cardUid: meal });
+    expect(g.state.prompt?.kind).toBe('unit');
+    ans(g, sav.id);
+    expect(g.state.prompt?.kind).toBe('cards');
+    ans(g, [target]);
+    expect(gr.under.map(c => c.uid)).toEqual([target]);
+    expect(sav.hand.length).toBe(savBefore - 1);
+  });
+});
+
 describe('薩凡娜＋葛蘭妮 隨機對打', () => {
   it('2000 場都能正常結束，雙方牌總數不變', () => {
     const wins = [0, 0, 0];
