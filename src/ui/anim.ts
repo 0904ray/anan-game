@@ -41,7 +41,7 @@ function snapsOf(st: GameState): UnitSnap[] {
   return [...st.players[0].units, ...st.players[1].units].map(u => ({
     id: u.id, hp: u.hp, tp: u.tp, ap: u.ap, tHp: u.tHp, life: u.life, critical: u.critical, spBonus: u.spBonus,
     dmgReduce: u.dmgReduce, noWound: u.noWound, noTpLoss: u.noTpLoss, halfTpNext: u.halfTpNext,
-    counters: { ...u.counters }, under: u.under.length, deck: u.deck.length, discard: u.discard.length,
+    counters: { ...u.counters }, tpMaxDown: u.tpMaxDown, under: u.under.length, deck: u.deck.length, discard: u.discard.length,
     discardTop: u.discard.length ? u.discard[u.discard.length - 1].defId : null, hand: u.hand.length,
   }));
 }
@@ -284,9 +284,34 @@ async function playEvent(e: FxEvent, layer: HTMLElement, ghosts: Map<string, HTM
       const from = showRect(), to = discardRect(e.unitId);
       if (from && to) {
         const fl = makeFly(layer, e.defId, from);
-        await flyTo(fl, from, to, 280, { arc: 20 });
+        // 使用後移出牌局的牌：不進棄牌區，直接往上淡出
+        if (e.removed) await flyTo(fl, from, { ...from, y: from.y - 140, w: from.w * 0.8, h: from.h * 0.8 }, 320, { fade: true });
+        else await flyTo(fl, from, to, 280, { arc: 20 });
         fl.remove();
       }
+      applySnap(e.s);
+      return;
+    }
+    case 'mill': {
+      // 從牌組移除 N 張到棄牌區：牌從牌組飛進棄牌堆
+      const from = deckRect(e.unitId), to = discardRect(e.unitId);
+      if (from && to) {
+        const flies = Array.from({ length: Math.min(e.n, 5) }, () => makeFly(layer, null, from, charOf(e.unitId)));
+        await Promise.all(flies.map((f, i) => sleep(i * 45).then(() => flyTo(f, from, to, 300, { fade: true }))));
+        flies.forEach(f => f.remove());
+      }
+      applySnap(e.s);
+      return;
+    }
+    case 'remove': {
+      // 移出牌局：從手牌或牌組往上淡出
+      const ghost = e.uid ? ghosts.get(e.uid) : undefined;
+      if (ghost) ghosts.delete(e.uid!);
+      const from = ghost ? rectFromEl(ghost) : e.from === 'deck' ? deckRect(e.unitId) : portraitRect(e.unitId);
+      if (!from) { applySnap(e.s); return; }
+      const fl = ghost ?? makeFly(layer, e.defId, from, charOf(e.unitId));
+      await flyTo(fl, from, { ...from, y: from.y - 140, w: from.w * 0.8, h: from.h * 0.8 }, 320, { fade: true });
+      fl.remove();
       applySnap(e.s);
       return;
     }

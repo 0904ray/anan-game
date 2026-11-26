@@ -46,7 +46,7 @@ export function simulate(teams: [Team, Team], n: number, deckSize: (p: PlayerIdx
       for (const p of g.state.players) {
         let total = 0;
         for (const u of p.units) {
-          total += u.deck.length + u.hand.length + u.discard.length + u.playing.length + u.under.length;
+          total += u.deck.length + u.hand.length + u.discard.length + u.playing.length + u.under.length + u.removed.length;
           if (u.hp < 0 || u.hp > u.maxHp) throw new Error(`seed ${seed}: ${u.id} hp ${u.hp}`);
           if (u.tp < 0 || u.tp > u.tpMax) throw new Error(`seed ${seed}: ${u.id} tp ${u.tp}`);
           if (u.ap < 0) throw new Error(`seed ${seed}: ${u.id} ap ${u.ap}`);

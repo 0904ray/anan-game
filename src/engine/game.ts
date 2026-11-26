@@ -49,8 +49,8 @@ export class Game {
     return {
       id: `p${owner}u${slot}`, owner, slot, charId, name: c.name,
       hp: c.hp, maxHp: c.hp, ap: 0, apMax: c.ap, tp: c.tp, tpMax: c.tp, at: c.at, atkCost: c.atkCost, baseSp: c.sp,
-      life: 'alive', critical: false, spBonus: 0,
-      deck, hand: [], discard: [], playing: [], under: [],
+      life: 'alive', critical: false, criticalPrev: false, tpMaxDown: 0, spBonus: 0,
+      deck, hand: [], discard: [], playing: [], under: [], removed: [],
       attacksThisTurn: 0, advanced: false, buyUsedThisTurn: false,
       dmgReduce: 0, noWound: false, noTpLoss: false, halfTpNext: false, tHp: 0, tTp: 0,
       counters,
@@ -93,13 +93,19 @@ export class Game {
   allies(u: Unit): Unit[] { return this.state.players[u.owner].units.filter(x => x.life !== 'dead'); }
   enemiesOf(owner: PlayerIdx): Unit[] { return this.state.players[1 - owner].units.filter(x => x.life !== 'dead'); }
   effSp(u: Unit): number { return u.life === 'dying' ? -1 : u.baseSp + u.spBonus; }
-  isWounded(u: Unit): boolean { return u.life === 'alive' && !u.noWound && u.tp <= Math.floor(u.tpMax / 2); }
+  isWounded(u: Unit): boolean { return u.life === 'alive' && !u.noWound && u.tp <= Math.floor(this.effTpMax(u) / 2); }
+  /** 目前的最大 TP（含永久減少，例如[墬淵]），最低 1 */
+  effTpMax(u: Unit): number { return Math.max(1, u.tpMax - u.tpMaxDown); }
   /** SP 規則：只能指定敵方 SP 最高的單位（同分皆可） */
   targetableEnemies(owner: PlayerIdx): Unit[] {
     const es = this.enemiesOf(owner);
     if (!es.length) return [];
     const max = Math.max(...es.map(e => this.effSp(e)));
     return es.filter(e => this.effSp(e) === max);
+  }
+  /** 主動攻擊能選的目標（角色可以用 hooks.enemyTargets 改寫，例如不受 SP 限制） */
+  attackTargets(u: Unit): Unit[] {
+    return CHAR_DEFS[u.charId].hooks?.enemyTargets?.(this, u) ?? this.targetableEnemies(u.owner);
   }
   /** 實際攻擊力（含角色能力加成） */
   effAt(u: Unit): number { return u.at + (CHAR_DEFS[u.charId].hooks?.atBonus?.(this, u) ?? 0); }
@@ -120,7 +126,7 @@ export class Game {
     return this.allUnits().map(u => ({
       id: u.id, hp: u.hp, tp: u.tp, ap: u.ap, tHp: u.tHp, life: u.life, critical: u.critical, spBonus: u.spBonus,
       dmgReduce: u.dmgReduce, noWound: u.noWound, noTpLoss: u.noTpLoss, halfTpNext: u.halfTpNext,
-      counters: { ...u.counters }, under: u.under.length, deck: u.deck.length, discard: u.discard.length,
+      counters: { ...u.counters }, tpMaxDown: u.tpMaxDown, under: u.under.length, deck: u.deck.length, discard: u.discard.length,
       discardTop: u.discard.length ? u.discard[u.discard.length - 1].defId : null, hand: u.hand.length,
     }));
   }
@@ -219,7 +225,7 @@ export class Game {
         if (h?.canAttack && !h.canAttack(this, u)) return '沒有足夠的攻擊資源';
         if (u.attacksThisTurn >= (h?.attackLimit?.(this, u) ?? 1)) return '這回合已經主動攻擊過了';
         if (u.ap < (h?.attackApCost?.(this, u) ?? u.atkCost)) return 'AP 不足';
-        if (!this.targetableEnemies(player).length) return '沒有可攻擊的目標';
+        if (!this.attackTargets(u).length) return '沒有可攻擊的目標';
         return null;
       }
       case 'advance':
@@ -263,8 +269,9 @@ export class Game {
         this.fx({ t: 'play', unitId: u.id, defId: d.id, uid: card.uid });
         yield* d.play(this, u);
         u.playing.splice(u.playing.indexOf(card), 1);
-        u.discard.push(card); // 打出的牌進棄牌區（不算「棄牌」）
-        this.fx({ t: 'playEnd', unitId: u.id, defId: d.id });
+        if (d.removeAfterPlay) u.removed.push(card); // 使用後移出牌局
+        else u.discard.push(card); // 打出的牌進棄牌區（不算「棄牌」）
+        this.fx({ t: 'playEnd', unitId: u.id, defId: d.id, removed: !!d.removeAfterPlay });
         return;
       }
       case 'playUnder': {
@@ -353,13 +360,14 @@ export class Game {
     this.log(`—— 第 ${st.turn} 回合：${ps.name} ——`, p);
     for (const u of ps.units) {
       if (u.life === 'dead') continue;
+      u.criticalPrev = u.critical; // 記下「上回合是否處於[重創]」，再重算
       u.tHp = 0; u.tTp = 0; u.dmgReduce = 0; u.noWound = false; u.noTpLoss = false;
       u.spBonus = 0; u.attacksThisTurn = 0; u.advanced = false; u.buyUsedThisTurn = false;
       if (u.life === 'alive') {
         if (u.halfTpNext) {
-          u.tp = Math.ceil(u.tpMax / 2);
+          u.tp = Math.ceil(this.effTpMax(u) / 2);
           this.log(`${u.name} 受到影響，只回復一半 TP（${u.tp}）`, p);
-        } else u.tp = u.tpMax;
+        } else u.tp = this.effTpMax(u);
         u.halfTpNext = false;
         u.critical = u.tp === 0;
         u.ap = Math.min(2 * ps.turnCount, u.apMax);
@@ -380,6 +388,12 @@ export class Game {
     const p = st.active;
     for (const e of st.endOfTurn) END_OF_TURN[e.kind]?.(this, this.unit(e.by));
     st.endOfTurn = [];
+    // 回合結束時的角色效果（例如拉尼斯可以移除手牌）
+    for (const u of st.players[p].units) {
+      if (u.life !== 'alive') continue;
+      const r = CHAR_DEFS[u.charId].hooks?.onOwnTurnEnd?.(this, u);
+      if (r) yield* r;
+    }
     this.log(`${st.players[p].name} 結束回合`, p);
     yield* this.startTurn((1 - p) as PlayerIdx);
   }
@@ -404,6 +418,7 @@ export class Game {
       u.hand.push(c);
       got++;
       this.fx({ t: 'draw', unitId: u.id, uid: c.uid });
+      CARD_DEFS[c.defId]?.onDrawCard?.(this, u, c); // 「抽出此牌時」的效果
     }
     if (!silent && got) this.log(`${u.name} 抽 ${got} 張牌`, u.owner);
     return got;
@@ -433,6 +448,7 @@ export class Game {
     if (u.life === 'dead') return;
     this.reshuffle(u);
     this.log(`${u.name} [洗牌]`, u.owner);
+    for (const ally of this.allies(u)) CHAR_DEFS[ally.charId].hooks?.onAllyShuffle?.(this, ally, u);
     this.draw(u, 1);
   }
 
@@ -443,6 +459,44 @@ export class Game {
     u.discard = [];
     this.shuffle(u.deck);
     if (had) this.fx({ t: 'reshuffle', unitId: u.id });
+  }
+
+  /** 從牌組最上方把 n 張牌放進棄牌區（「移除 N 張牌至棄牌區」）：不算抽牌、不算棄牌 */
+  mill(u: Unit, n: number): number {
+    let k = 0;
+    for (let i = 0; i < n && u.deck.length; i++) { u.discard.push(u.deck.pop()!); k++; }
+    if (k) {
+      this.log(`${u.name} 從牌組移除 ${k} 張牌至棄牌區`, u.owner);
+      this.fx({ t: 'mill', unitId: u.id, n: k });
+    }
+    return k;
+  }
+
+  /** 把指定的手牌移出牌局（不進棄牌區） */
+  removeHandCards(u: Unit, uids: string[]): number {
+    let k = 0;
+    for (const uid of uids) {
+      const i = u.hand.findIndex(c => c.uid === uid);
+      if (i < 0) continue;
+      const card = u.hand.splice(i, 1)[0];
+      u.removed.push(card);
+      this.fx({ t: 'remove', unitId: u.id, defId: card.defId, uid: card.uid, from: 'hand' });
+      k++;
+    }
+    return k;
+  }
+
+  /** 從牌組最上方把 n 張牌移出牌局 */
+  removeDeckTop(u: Unit, n: number): number {
+    let k = 0;
+    for (let i = 0; i < n && u.deck.length; i++) {
+      const card = u.deck.pop()!;
+      u.removed.push(card);
+      this.fx({ t: 'remove', unitId: u.id, defId: card.defId, from: 'deck' });
+      k++;
+    }
+    if (k) this.log(`${u.name} 從牌組移除 ${k} 張牌`, u.owner);
+    return k;
   }
 
   // ======================================================================
@@ -524,6 +578,10 @@ export class Game {
       this.log(`${u.name} 陷入[重創]！-3 HP（直傷）`, u.owner);
       this.fx({ t: 'status', unitId: u.id, text: '重創' });
       this.dealHp(u, 3);
+      // 「任一單位進入[重創]」的被動（例如給予[墬淵]、瀆神海域的額外直傷）
+      for (const src of this.allUnits()) {
+        if (src.life === 'alive') CHAR_DEFS[src.charId].hooks?.onUnitCritical?.(this, src, u);
+      }
     } else if (!wasWounded && this.isWounded(u)) {
       this.log(`${u.name} 陷入[負傷]`, u.owner);
       this.fx({ t: 'status', unitId: u.id, text: '負傷' });
@@ -550,7 +608,7 @@ export class Game {
   private enterDying(u: Unit) {
     u.hp = 0;
     u.life = 'dying';
-    u.tp = u.tpMax;
+    u.tp = this.effTpMax(u);
     u.critical = false;
     u.spBonus = 0;
     u.tHp = 0;
@@ -569,7 +627,7 @@ export class Game {
     return this.unit(id);
   }
   *chooseEnemy(u: Unit, title: string): Eff<Unit | null> {
-    return yield* this.chooseUnit(u.owner, title, this.targetableEnemies(u.owner));
+    return yield* this.chooseUnit(u.owner, title, this.attackTargets(u));
   }
   *chooseAlly(u: Unit, title: string): Eff<Unit | null> {
     return yield* this.chooseUnit(u.owner, title, this.state.players[u.owner].units.filter(x => x.life === 'alive'));
