@@ -254,3 +254,21 @@ img.missing { display: none !important; }
 .showcard .ctext.long { font-size: 11px; }
 .bigcard .ctext.long { font-size: 17px; }
 .underlist .item { padding: 8px 16px; border-radius: 10px; border: 2px solid #6b5230; background: #2a1f15; font-size: 22px; }
+
+/* ===================== 動畫 ===================== */
+.fxlayer { position: absolute; inset: 0; pointer-events: none; z-index: 110; }
+.busy .board { cursor: progress; }
+.card.pending { visibility: hidden; }
+.fly { position: absolute; left: 0; top: 0; width: 230px; height: 322px; transform-origin: 0 0; pointer-events: none; will-change: transform; }
+.fly .card.static { position: absolute; inset: 0; top: 0; transform: none !important; cursor: default; }
+.fly .flyback { position: absolute; inset: 0; border-radius: 14px; border: 3px solid #8b6a3a; background: repeating-linear-gradient(45deg, #3b2412 0 10px, #2b190b 10px 20px); box-shadow: 0 10px 22px rgba(0, 0, 0, .6); overflow: hidden; }
+.fly .flyback img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.fly.glow-me .card { box-shadow: 0 0 0 3px #ffe07a, 0 0 46px rgba(255, 207, 90, .85); border-color: #ffe07a; }
+.fly.glow-op .card { box-shadow: 0 0 0 3px #ff8f7a, 0 0 46px rgba(255, 110, 80, .85); border-color: #ff8f7a; }
+.fly.devouring .card { box-shadow: 0 0 0 3px #c04a7a, 0 0 40px rgba(200, 60, 140, .9); border-color: #c04a7a; filter: saturate(.6) hue-rotate(-30deg); }
+.fxlayer .float { position: absolute; transform: translateX(-50%); }
+.float.counter { color: #ffd56e; font-size: 30px; }
+.float.devour { color: #ff7ac0; font-size: 44px; }
+.slash { position: absolute; width: 180px; height: 14px; margin: -7px 0 0 -90px; border-radius: 7px; background: linear-gradient(90deg, transparent, #fff 40%, #ffd56e 60%, transparent); transform: rotate(-35deg) scaleX(0); animation: slash .35s ease-out forwards; box-shadow: 0 0 20px #fff; }
+@keyframes slash { 0% { transform: rotate(-35deg) scaleX(0); opacity: 1; } 50% { transform: rotate(-35deg) scaleX(1.1); opacity: 1; } 100% { transform: rotate(-35deg) scaleX(1.2); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .slash { animation: none; display: none; } }

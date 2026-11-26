@@ -10,10 +10,10 @@ const G = 'gluttony'; // [暴食]
 const PERM = 'permAt'; // 能力 5 累積的永久 AT
 
 /** 吞噬：把牌壓到葛蘭妮下方，回復 1 HP（能力 3） */
-function devour(g: Game, gran: Unit, card: CardInst) {
+function devour(g: Game, gran: Unit, card: CardInst, from: Unit, src: 'hand' | 'discard') {
   gran.under.push(card);
   g.log(`${gran.name} 吞噬了【${CARD_DEFS[card.defId].name}】（吞噬 ${gran.under.length} 張，AT ${g.effAt(gran)}）`, gran.owner);
-  g.fx({ t: 'status', unitId: gran.id, text: '吞噬' });
+  g.fx({ t: 'devour', unitId: gran.id, fromId: from.id, uid: card.uid, defId: card.defId, src });
   g.heal(gran, 1);
 }
 
@@ -27,7 +27,7 @@ function* devourFromHand(g: Game, u: Unit, title: string): Eff<boolean> {
   const pick = yield* g.chooseHandCards(from, `${title}：選 ${from.name} 的 1 張手牌`, 1, 1);
   if (!pick.length) return false;
   const i = from.hand.findIndex(c => c.uid === pick[0]);
-  devour(g, u, from.hand.splice(i, 1)[0]);
+  devour(g, u, from.hand.splice(i, 1)[0], from, 'hand');
   return true;
 }
 
@@ -153,6 +153,7 @@ const granny: CharDef = {
         const x = u.under.length;
         u.discard.push(...u.under);
         u.under = [];
+        g.fx({ t: 'toDiscard', unitId: u.id, n: x });
         g.addCounter(u, PERM, x);
         g.log(`${u.name} 消化了 ${x} 張牌：AT 永久 +${x}（目前 AT ${g.effAt(u)}）`, u.owner);
         g.fx({ t: 'status', unitId: u.id, text: `AT 永久 +${x}` });
@@ -175,7 +176,7 @@ const granny: CharDef = {
         const i = owner.discard.findIndex(c => c.uid === card.uid);
         if (i >= 0) {
           spend(g, u, 3);
-          devour(g, u, owner.discard.splice(i, 1)[0]);
+          devour(g, u, owner.discard.splice(i, 1)[0], owner, 'discard');
           g.draw(u, 1);
           return;
         }

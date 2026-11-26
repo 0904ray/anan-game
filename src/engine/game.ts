@@ -1,5 +1,5 @@
 import type {
-  Action, Answer, CardInst, GameState, PlayerIdx, PlayerState, Prompt, Unit, FxEvent,
+  Action, Answer, CardInst, GameState, PlayerIdx, PlayerState, Prompt, Unit, FxBody, UnitSnap,
 } from './types';
 import { CARD_DEFS, CHAR_DEFS, type Eff } from './defs';
 
@@ -21,7 +21,7 @@ export class Game {
     const state: GameState = {
       seed, turn: 0, active: 0, first: 0,
       players: [null as any, null as any],
-      prompt: null, winner: null, log: [], fx: [], fxSeq: 0, endOfTurn: [], uidCounter: 0,
+      prompt: null, winner: null, log: [], fx: [], fxSeq: 0, endOfTurn: [], uidCounter: 0, gameId: seed.toString(36) + '-' + Date.now().toString(36),
     };
     const g = new Game(state);
     for (const p of [0, 1] as PlayerIdx[]) {
@@ -105,13 +105,24 @@ export class Game {
   /** 卡牌實際費用 */
   cardCost(u: Unit, defId: string): number { const d = CARD_DEFS[defId]; return Math.max(0, d.costFor ? d.costFor(this, u) : d.cost); }
   counter(u: Unit, id: string): number { return u.counters[id] ?? 0; }
-  addCounter(u: Unit, id: string, n: number) { u.counters[id] = (u.counters[id] ?? 0) + n; }
+  addCounter(u: Unit, id: string, n: number) {
+    u.counters[id] = (u.counters[id] ?? 0) + n;
+    if (n) this.fx({ t: 'counter', unitId: u.id, id, delta: n });
+  }
 
   // ======================================================================
   // 紀錄與特效
   // ======================================================================
   log(text: string, side?: PlayerIdx) { this.state.log.push({ turn: this.state.turn, text, side }); }
-  fx(e: FxEvent) { this.state.fx.push(e); }
+  fx(e: FxBody) { this.state.fx.push({ ...e, s: this.snapAll() } as any); }
+  snapAll(): UnitSnap[] {
+    return this.allUnits().map(u => ({
+      id: u.id, hp: u.hp, tp: u.tp, ap: u.ap, tHp: u.tHp, life: u.life, critical: u.critical, spBonus: u.spBonus,
+      dmgReduce: u.dmgReduce, noWound: u.noWound, noTpLoss: u.noTpLoss, halfTpNext: u.halfTpNext,
+      counters: { ...u.counters }, under: u.under.length, deck: u.deck.length, discard: u.discard.length,
+      discardTop: u.discard.length ? u.discard[u.discard.length - 1].defId : null, hand: u.hand.length,
+    }));
+  }
 
   // ======================================================================
   // 流程控制
@@ -245,10 +256,11 @@ export class Game {
         const cost = this.cardCost(u, card.defId);
         u.ap -= cost;
         this.log(`${u.name} 打出【${d.name}】（-${cost} AP）`, u.owner);
-        this.fx({ t: 'play', unitId: u.id, defId: d.id });
+        this.fx({ t: 'play', unitId: u.id, defId: d.id, uid: card.uid });
         yield* d.play(this, u);
         u.playing.splice(u.playing.indexOf(card), 1);
         u.discard.push(card); // 打出的牌進棄牌區（不算「棄牌」）
+        this.fx({ t: 'playEnd', unitId: u.id, defId: d.id });
         return;
       }
       case 'playUnder': {
@@ -260,10 +272,11 @@ export class Game {
         const d = CARD_DEFS[card.defId];
         u.ap -= cost;
         this.log(`${u.name} 使用${CHAR_DEFS[u.charId].underName ?? '下方'}的【${d.name}】（-${cost} AP）`, u.owner);
-        this.fx({ t: 'play', unitId: u.id, defId: d.id });
+        this.fx({ t: 'play', unitId: u.id, defId: d.id, uid: card.uid, fromUnder: true });
         yield* d.play(this, u);
         u.playing.splice(u.playing.indexOf(card), 1);
         u.discard.push(card);
+        this.fx({ t: 'playEnd', unitId: u.id, defId: d.id });
         CHAR_DEFS[u.charId].hooks?.afterPlayUnder?.(this, u);
         return;
       }
@@ -330,7 +343,6 @@ export class Game {
     ps.discardsThisTurn = 0;
     st.turn++;
     st.active = p;
-    this.fx({ t: 'turn', player: p });
     this.log(`—— 第 ${st.turn} 回合：${ps.name} ——`, p);
     for (const u of ps.units) {
       if (u.life === 'dead') continue;
@@ -348,6 +360,7 @@ export class Game {
         u.ap = 0;
       }
     }
+    this.fx({ t: 'turn', player: p });
     for (const u of ps.units) {
       if (u.life !== 'alive') continue;
       CHAR_DEFS[u.charId].hooks?.onTurnStartBeforeDraw?.(this, u);
@@ -387,9 +400,12 @@ export class Game {
         u.discard = [];
         this.shuffle(u.deck);
         this.log(`${u.name} 的牌組用完，棄牌區洗回牌組`, u.owner);
+        this.fx({ t: 'reshuffle', unitId: u.id });
       }
-      u.hand.push(u.deck.pop()!);
+      const c = u.deck.pop()!;
+      u.hand.push(c);
       got++;
+      this.fx({ t: 'draw', unitId: u.id, uid: c.uid });
     }
     if (!silent && got) this.log(`${u.name} 抽 ${got} 張牌`, u.owner);
     return got;
@@ -404,6 +420,7 @@ export class Game {
       u.discard.push(card);
       const d = CARD_DEFS[card.defId];
       this.log(`${u.name} 棄置【${d.name}】`, u.owner);
+      this.fx({ t: 'discard', unitId: u.id, uid: card.uid, defId: card.defId });
       this.state.players[u.owner].discardsThisTurn++;
       for (const ally of this.allies(u)) {
         const r = CHAR_DEFS[ally.charId].hooks?.onAllyDiscard?.(this, ally, u, card);
@@ -415,9 +432,11 @@ export class Game {
 
   /** 把棄牌區洗回牌組 */
   reshuffle(u: Unit) {
+    const had = u.discard.length;
     u.deck.push(...u.discard);
     u.discard = [];
     this.shuffle(u.deck);
+    if (had) this.fx({ t: 'reshuffle', unitId: u.id });
   }
 
   // ======================================================================
@@ -426,6 +445,7 @@ export class Game {
   /** [打擊]一次：造成 AT 點傷害並 -1 TP */
   strikeOnce(src: Unit, tgt: Unit): number {
     if (tgt.life === 'dead') return 0;
+    this.fx({ t: 'strike', unitId: src.id, targetId: tgt.id });
     const dmg = this.attackHit(src, tgt, this.effAt(src), true);
     CHAR_DEFS[src.charId].hooks?.onStrike?.(this, src);
     return dmg;

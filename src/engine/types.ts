@@ -78,14 +78,33 @@ export interface LogEntry {
   side?: PlayerIdx;
 }
 
-/** 給畫面做動畫用的事件 */
-export type FxEvent =
+/** 事件發生當下每個角色的公開數值（畫面播動畫時照這個一步一步更新） */
+export interface UnitSnap {
+  id: string;
+  hp: number; tp: number; ap: number; tHp: number;
+  life: LifeState; critical: boolean; spBonus: number;
+  dmgReduce: number; noWound: boolean; noTpLoss: boolean; halfTpNext: boolean;
+  counters: Record<string, number>;
+  under: number; deck: number; discard: number; discardTop: string | null; hand: number;
+}
+
+/** 給畫面做動畫用的事件（依發生順序） */
+export type FxBody =
+  | { t: 'turn'; player: PlayerIdx }
+  | { t: 'draw'; unitId: string; uid: string }
+  | { t: 'reshuffle'; unitId: string }
+  | { t: 'play'; unitId: string; defId: string; uid: string; fromUnder?: boolean }
+  | { t: 'playEnd'; unitId: string; defId: string }
+  | { t: 'discard'; unitId: string; uid: string; defId: string }
+  | { t: 'devour'; unitId: string; fromId: string; uid: string; defId: string; src: 'hand' | 'discard' }
+  | { t: 'toDiscard'; unitId: string; n: number } // 吞噬的牌整疊進棄牌區（消化）
+  | { t: 'strike'; unitId: string; targetId: string }
   | { t: 'damage'; unitId: string; amount: number }
   | { t: 'heal'; unitId: string; amount: number }
   | { t: 'tp'; unitId: string; amount: number }
-  | { t: 'status'; unitId: string; text: string }
-  | { t: 'play'; unitId: string; defId: string }
-  | { t: 'turn'; player: PlayerIdx };
+  | { t: 'counter'; unitId: string; id: string; delta: number }
+  | { t: 'status'; unitId: string; text: string };
+export type FxEvent = FxBody & { s: UnitSnap[] };
 
 export interface GameState {
   seed: number;
@@ -98,6 +117,7 @@ export interface GameState {
   log: LogEntry[];
   fx: FxEvent[];           // 最近一次操作產生的事件
   fxSeq: number;
+  gameId: string;          // 每局不同，用來判斷是不是同一局
   endOfTurn: { kind: string; by: string }[];
   uidCounter: number;
 }
