@@ -58,7 +58,7 @@ function renderLobby(status = '', roomCode = '') {
     <img class="bg-img" src="${ASSET.lobby}">
     <div class="lobby">
       <h1>冷倫卡牌對戰</h1>
-      <div class="sub">暫定名稱 · 測試版 v0.1</div>
+      <div class="sub">暫定名稱 · 測試版 v0.2</div>
       <div class="panel">
         <label>你的名字 <input id="name" maxlength="12" value="${esc(myName)}"></label>
         <button class="btn" data-act="host" ${ONLINE_OK ? '' : 'disabled'}>建立房間</button>
@@ -85,11 +85,17 @@ function readName() {
 }
 
 // =====================================================================
-// 對戰畫面
+// 對戰畫面（方案 A 修改版）
+//  敵方角色 ─ 中央帶（紀錄｜出牌展示區｜回合）─ 我方角色 ─ 手牌
+//  左角色的牌組／棄牌在最左邊，右角色的在最右邊
 // =====================================================================
 function rel(p: PlayerIdx) { return p === me ? 'me' : 'op'; }
-
 function liveGame(): Game { return new Game(view!); } // 用來在畫面上判斷操作是否合法
+
+/** 出牌展示區目前顯示的牌 */
+let lastPlayed: { defId: string; by: string; side: PlayerIdx } | null = null;
+/** 滑鼠移到卡上時暫時預覽的牌（電腦用） */
+let hoverDef: string | null = null;
 
 function renderGame() {
   if (!view) return;
@@ -104,28 +110,22 @@ function renderGame() {
     const u = g.unit(ui.picked.unitId);
     if (!u.hand.some(c => c.uid === ui.picked!.uid)) ui.picked = null;
   }
+  // 先記下這次的出牌，展示區才會顯示
+  if (st.fxSeq !== lastFxSeq) for (const e of st.fx) if (e.t === 'play') lastPlayed = { defId: e.defId, by: g.unit(e.unitId).name, side: g.unit(e.unitId).owner };
+  if (st.turn <= 1 && st.fx.length === 0) lastPlayed = null;
 
   const op = (1 - me) as PlayerIdx;
   const targetIds = myPrompt?.kind === 'unit' ? myPrompt.unitIds : [];
 
   let html = `<img class="bg-img" src="${ASSET.table}"><div class="board">`;
-  // 對手手牌背面
-  for (const u of st.players[op].units) {
-    const n = u.hand.length;
-    html += `<div class="ophand s${u.slot}">${Array.from({ length: Math.min(n, 12) }, () => `<div class="cardback"><img src="${ASSET.back}"></div>`).join('')}<span class="count">手牌 ${n}</span></div>`;
-  }
-  for (const u of st.players[op].units) html += unitHtml(g, u, 'theirs', targetIds, myTurn);
-  for (const u of st.players[me].units) html += unitHtml(g, u, 'mine', targetIds, myTurn);
-  html += bannerHtml(st, myPrompt, myTurn);
-  for (const u of st.players[me].units) html += handHtml(g, u, myPrompt, myTurn);
+  for (const u of st.players[op].units) html += unitHtml(g, u, 'theirs', targetIds, myTurn) + miniPilesHtml(u);
+  html += bandHtml(st, g, myPrompt, myTurn);
+  for (const u of st.players[me].units) html += unitHtml(g, u, 'mine', targetIds, myTurn) + pilesHtml(u) + handHtml(g, u, myPrompt, myTurn);
   html += `</div>`;
-  html += sidebarHtml(st, myTurn);
   if (myPrompt && (myPrompt.kind === 'confirm' || myPrompt.kind === 'option' || myPrompt.kind === 'number')) html += modalHtml(myPrompt);
   if (st.winner !== null) html += gameOverHtml(st);
 
   stage.innerHTML = html;
-  const log = stage.querySelector('.log');
-  if (log) log.scrollTop = log.scrollHeight;
   playFx(st);
 }
 
@@ -152,22 +152,22 @@ function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: string[]
   const half = Math.floor(u.tpMax / 2);
   const tpPips = Array.from({ length: u.tpMax }, (_, i) => `<div class="pip tp ${i < u.tp ? 'on' : ''} ${u.tp <= half && u.life === 'alive' ? 'low' : ''} ${i === half - 1 ? 'half' : ''}"></div>`).join('');
   const apPips = Array.from({ length: u.apMax }, (_, i) => `<div class="pip ap ${i < u.ap ? 'on' : ''}"></div>`).join('');
-  const counters = (c.counters ?? []).map(ct => `${ct.name} <b>${u.counters[ct.id] ?? 0}</b>`).join(' ');
+  const counters = (c.counters ?? []).map(ct => `<span>${ct.name} <b class="gold">${u.counters[ct.id] ?? 0}</b></span>`).join('');
   let actions = '';
   if (side === 'mine' && myTurn && u.life === 'alive') {
     const btn = (a: Action, label: string, extra = '') => {
       const err = g.checkAction(me, a);
       return `<button class="act-btn ${extra}" data-action='${esc(JSON.stringify(a))}' ${err ? `disabled title="${esc(err)}"` : ''}>${label}</button>`;
     };
-    actions += btn({ type: 'attack', unitId: u.id }, `普攻（${u.atkCost}）`);
-    actions += btn({ type: 'advance', unitId: u.id }, '居前（1）');
-    if (g.teammate(u).life === 'dying' && !view!.players[me].rescueUsed) actions += btn({ type: 'rescue', unitId: u.id }, `救治（${g.teammate(u).tp * 2}）`);
+    actions += btn({ type: 'attack', unitId: u.id }, `普攻 ${u.atkCost}`);
+    actions += btn({ type: 'advance', unitId: u.id }, '居前 1');
+    if (g.teammate(u).life === 'dying' && !view!.players[me].rescueUsed) actions += btn({ type: 'rescue', unitId: u.id }, `救治 ${g.teammate(u).tp * 2}`);
     for (const ab of c.abilities.filter(a => a.active)) actions += btn({ type: 'ability', unitId: u.id, abilityId: ab.id }, ab.name, 'ability');
   }
   const hpPct = Math.max(0, u.hp / u.maxHp * 100);
   return `
   <div class="${cls}" data-unit="${u.id}">
-    <div class="portrait tilt" data-unit-click="${u.id}" data-preview-unit="${u.id}" style="--hue:${hue(u.charId)}">
+    <div class="portrait tilt" data-unit-click="${u.id}" style="--hue:${hue(u.charId)}">
       <div class="art"><span class="initial">${esc(CHAR_DEFS[u.charId].name[0])}</span><img src="${ASSET.char(u.charId)}"></div>
       <div class="badges">${badges(g, u)}</div>
       <div class="nameplate">${esc(u.name)}</div>
@@ -175,11 +175,9 @@ function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: string[]
     </div>
     <div class="stats">
       <div class="hpbar"><div class="fill" style="width:${hpPct}%"></div><span>HP ${u.hp} / ${u.maxHp}${u.tHp ? ` (+${u.tHp})` : ''}</span></div>
-      <div class="row"><label>TP</label><div class="pips">${tpPips}</div><span>${u.tp}/${u.tpMax}</span></div>
-      <div class="row"><label>AP</label><div class="pips">${apPips}</div><span>${u.ap}/${u.apMax}</span></div>
-      <div class="row mini"><span>AT <b>${u.at}</b></span><span>SP <b>${g.effSp(u)}</b></span>${counters ? `<span>${counters}</span>` : ''}</div>
-      <div class="row mini"><span>牌組 <b>${u.deck.length}</b></span><span>棄牌 <b>${u.discard.length}</b></span>${side === 'theirs' ? `<span>手牌 <b>${u.hand.length}</b></span>` : ''}</div>
-      <div class="actions">${actions}</div>
+      <div class="row"><label>TP</label><div class="pips">${tpPips}</div><label class="ap">AP</label><div class="pips">${apPips}</div></div>
+      <div class="chips"><span>AT <b>${u.at}</b>・SP <b>${g.effSp(u)}</b></span>${counters}${side === 'theirs' ? `<span>手牌 <b>${u.hand.length}</b></span>` : ''}</div>
+      ${actions ? `<div class="actions">${actions}</div>` : ''}
     </div>
   </div>`;
 }
@@ -191,20 +189,42 @@ function cardInner(defId: string, big = false): string {
     <div class="art" style="--hue:${hue(defId)}"><span class="glyph">${esc(d.name[0])}</span><img src="${ASSET.card(defId)}"></div>
     <div class="cname">${esc(d.name)}</div>
     <div class="ctext">${esc(d.text)}${d.discardText ? `<span class="dis">${big ? '' : ' '}(棄置時) ${esc(d.discardText)}</span>` : ''}</div>
-    ${big ? `<div class="owner">${esc(CHAR_DEFS[d.charId].name)}</div>` : ''}`;
+    <div class="owner">${esc(CHAR_DEFS[d.charId].name)}</div>`;
+}
+
+/** 我方牌堆：牌組在上、棄牌區在下 */
+function pilesHtml(u: Unit): string {
+  const top = u.discard[u.discard.length - 1];
+  const deckCls = u.deck.length === 0 ? 'empty' : u.deck.length < 5 ? 'thin' : '';
+  const dis = top
+    ? `<div class="pile discard" data-pile="discard" data-pile-unit="${u.id}"><div class="mini-art" style="--hue:${hue(top.defId)}">${esc(CARD_DEFS[top.defId].name[0])}<img src="${ASSET.card(top.defId)}"></div><div class="mini-name">${esc(CARD_DEFS[top.defId].name)}</div><div class="count">棄牌 <b>${u.discard.length}</b></div></div>`
+    : `<div class="pile discard empty" data-pile="discard" data-pile-unit="${u.id}"><div class="count">棄牌 <b>0</b></div></div>`;
+  return `<div class="piles s${u.slot}">
+    <div class="pile deck ${deckCls}" data-pile="deck" data-pile-unit="${u.id}">${u.deck.length ? `<img src="${ASSET.back}">` : ''}<div class="count">牌組 <b>${u.deck.length}</b></div></div>
+    ${dis}
+  </div>`;
+}
+
+/** 敵方的小牌堆 */
+function miniPilesHtml(u: Unit): string {
+  const top = u.discard[u.discard.length - 1];
+  return `<div class="minipiles s${u.slot}">
+    <div class="mp" data-pile="deck" data-pile-unit="${u.id}"><div></div>牌組 ${u.deck.length}</div>
+    <div class="mp" data-pile="discard" data-pile-unit="${u.id}"><div class="dis ${top ? '' : 'empty'}" style="--hue:${top ? hue(top.defId) : 0}"></div>棄牌 ${u.discard.length}</div>
+  </div>`;
 }
 
 function handHtml(g: Game, u: Unit, myPrompt: Prompt | null, myTurn: boolean): string {
   const n = u.hand.length;
-  const W = 690, CW = 160;
-  const step = n > 1 ? Math.min(CW + 10, (W - CW) / (n - 1)) : 0;
+  const W = 770, CW = 230;
+  const step = n > 1 ? Math.min(CW + 12, (W - CW) / (n - 1)) : 0;
   const total = step * (n - 1) + CW;
   const start = (W - total) / 2;
   const selecting = myPrompt?.kind === 'cards' && myPrompt.unitId === u.id;
-  let html = `<div class="hand s${u.slot}"><div class="label">${esc(u.name)} 的手牌（${n}）</div>`;
+  let html = `<div class="hand s${u.slot}" data-hand="${u.id}"><div class="label">${esc(u.name)} 的手牌 ${n}</div>`;
   u.hand.forEach((c: CardInst, i: number) => {
     const mid = (n - 1) / 2;
-    const rot = (i - mid) * 3;
+    const rot = (i - mid) * 2.5;
     const y = Math.abs(i - mid) * Math.abs(i - mid) * 2;
     const playable = myTurn && u.life === 'alive' && g.checkAction(me, { type: 'play', unitId: u.id, cardUid: c.uid }) === null;
     const selectable = selecting && (myPrompt as any).cardUids.includes(c.uid);
@@ -214,38 +234,58 @@ function handHtml(g: Game, u: Unit, myPrompt: Prompt | null, myTurn: boolean): s
   return html + `</div>`;
 }
 
-function bannerHtml(st: GameState, myPrompt: Prompt | null, myTurn: boolean): string {
-  let inner = '';
-  if (st.winner !== null) inner = `<div class="msg">對戰結束</div>`;
-  else if (myPrompt?.kind === 'unit') inner = `<div class="msg mine">${esc(myPrompt.title)}（點選發光的角色）</div>`;
+/** 中央帶：紀錄｜出牌展示區｜回合 */
+function bandHtml(st: GameState, g: Game, myPrompt: Prompt | null, myTurn: boolean): string {
+  const lines = st.log.slice(-5).map(l => {
+    const cls = l.text.startsWith('——') ? 'sys' : l.side === undefined ? '' : rel(l.side);
+    return `<div class="line ${cls}">${esc(l.text)}</div>`;
+  }).join('');
+
+  // 展示區內容（優先順序：我要做的選擇 > 準備打出的牌 > 最近打出的牌）
+  let cardDef: string | null = lastPlayed?.defId ?? null;
+  let cardCls = lastPlayed ? rel(lastPlayed.side) : 'me';
+  let label = '出牌展示區';
+  let main = '';
+  let mainCls = 'me';
+  let sub = '';
+  let btns = '';
+  if (st.winner !== null) { main = '對戰結束'; }
+  else if (myPrompt?.kind === 'unit') { label = '請選擇'; main = esc(myPrompt.title); sub = '點選發光的角色'; }
   else if (myPrompt?.kind === 'cards') {
     const ok = ui.selected.size >= myPrompt.min && ui.selected.size <= myPrompt.max;
-    inner = `<div class="msg mine">${esc(myPrompt.title)}　已選 ${ui.selected.size}${myPrompt.min === myPrompt.max ? ` / ${myPrompt.max}` : `（${myPrompt.min}～${myPrompt.max}）`}</div>
-      <button class="btn small" data-answer-cards ${ok ? '' : 'disabled'}>確定</button>`;
-  } else if (myPrompt) inner = `<div class="msg mine">${esc(myPrompt.title)}</div>`;
-  else if (st.prompt) inner = `<div class="msg wait">等待 ${esc(st.players[st.prompt.player].name)} 做選擇…</div>`;
+    label = '請選擇手牌'; main = esc(myPrompt.title);
+    sub = `已選 ${ui.selected.size}${myPrompt.min === myPrompt.max ? ` / ${myPrompt.max}` : `（${myPrompt.min}～${myPrompt.max} 張）`}`;
+    btns = `<button class="btn small" data-answer-cards ${ok ? '' : 'disabled'}>確定</button>`;
+  } else if (myPrompt) { label = '請選擇'; main = esc(myPrompt.title); }
+  else if (st.prompt) { main = `等待 ${esc(st.players[st.prompt.player].name)} 做選擇…`; mainCls = 'op'; }
   else if (myTurn && ui.picked) {
-    const d = CARD_DEFS[liveGame().unit(ui.picked.unitId).hand.find(c => c.uid === ui.picked!.uid)!.defId];
-    inner = `<div class="msg mine">打出【${esc(d.name)}】（${d.cost} AP）？</div>
-      <button class="btn small" data-play-picked>打出</button><button class="btn small ghost" data-cancel-pick>取消</button>`;
-  } else if (myTurn) inner = `<div class="msg mine">你的回合：點手牌出牌，或使用角色下方的按鈕</div>`;
-  else inner = `<div class="msg wait">${esc(st.players[st.active].name)} 的回合…</div>`;
-  return `<div class="banner">${inner}</div>`;
-}
+    const c = g.unit(ui.picked.unitId).hand.find(x => x.uid === ui.picked!.uid)!;
+    const d = CARD_DEFS[c.defId];
+    cardDef = c.defId; cardCls = 'me';
+    label = '準備打出'; main = `${esc(g.unit(ui.picked.unitId).name)}：【${esc(d.name)}】`; sub = `花費 ${d.cost} AP`;
+    btns = `<button class="btn small" data-play-picked>打出</button><button class="btn small ghost" data-cancel-pick>取消</button>`;
+  } else if (lastPlayed) {
+    mainCls = rel(lastPlayed.side);
+    main = `${lastPlayed.side === me ? '' : '對手的 '}${esc(lastPlayed.by)} 打出【${esc(CARD_DEFS[lastPlayed.defId].name)}】`;
+    sub = myTurn ? '你的回合：點手牌出牌，或用角色旁的按鈕' : `${esc(st.players[st.active].name)} 的回合…`;
+  } else {
+    main = myTurn ? '你的回合' : `${esc(st.players[st.active].name)} 的回合…`;
+    mainCls = myTurn ? 'me' : 'op';
+    sub = '打出的牌會顯示在這裡';
+  }
+  if (hoverDef && !myPrompt && !ui.picked) { cardDef = hoverDef; cardCls = 'me'; }
+  const cardHtml = cardDef
+    ? `<div class="showcard ${cardCls}" id="showcard" data-preview-card="${cardDef}">${cardInner(cardDef)}</div>`
+    : `<div class="slot" id="showcard">出牌<br>展示區</div>`;
 
-function sidebarHtml(st: GameState, myTurn: boolean): string {
-  const activeName = st.players[st.active].name;
-  const logHtml = st.log.slice(-120).map(l => {
-    const cls = l.text.startsWith('——') ? 'sys' : l.side === undefined ? '' : rel(l.side);
-    return `<div class="${cls}">${esc(l.text)}</div>`;
-  }).join('');
-  return `
-  <div class="sidebar">
-    <div class="turninfo"><span>第 ${st.turn} 回合</span><span class="who ${rel(st.active)}">${esc(activeName)}</span>
-      <button class="btn ghost small" data-act="menu">選單</button></div>
-    <button class="btn endturn ${myTurn ? 'glow' : ''}" data-end ${myTurn ? '' : 'disabled'}>結束回合</button>
-    <div class="preview" id="preview"><div class="hint">把滑鼠移到（手機：點一下）卡牌或角色上<br>這裡會顯示完整說明</div></div>
-    <div class="log">${logHtml}</div>
+  return `<div class="band">
+    <div class="logbox"><div class="head"><span>戰鬥紀錄</span><button class="btn ghost small" data-act="fulllog">展開</button></div>${lines}</div>
+    <div class="show">${cardHtml}<div class="info"><span class="label">${label}</span><span class="main ${mainCls}">${main}</span>${sub ? `<span class="sub">${sub}</span>` : ''}${btns ? `<div class="btns">${btns}</div>` : ''}</div></div>
+    <div class="turn">
+      <div class="t1"><span>第 ${st.turn} 回合</span><span class="who ${rel(st.active)}">${st.active === me ? '你的回合' : esc(st.players[st.active].name)}</span></div>
+      <button class="btn endturn ${myTurn ? 'glow' : ''}" data-end ${myTurn ? '' : 'disabled'}>結束回合</button>
+      <button class="btn ghost small" data-act="menu">選單</button>
+    </div>
   </div>`;
 }
 
@@ -270,24 +310,44 @@ function gameOverHtml(st: GameState): string {
     <div class="row2"><button class="btn" data-act="rematch">再來一局</button><button class="btn ghost" data-act="lobby">回到大廳</button></div></div>`;
 }
 
-// =====================================================================
-// 右側說明
-// =====================================================================
-function showPreviewCard(defId: string) {
-  const el = document.getElementById('preview');
-  if (!el || !CARD_DEFS[defId]) return;
-  el.innerHTML = `<div class="bigcard">${cardInner(defId, true)}</div>`;
+// 頁內彈出視窗（角色說明、完整紀錄、棄牌區內容、選單）
+function popup(inner: string) {
+  stage.querySelector('.popup-bg')?.remove();
+  const el = document.createElement('div');
+  el.className = 'modal-bg popup-bg';
+  el.innerHTML = `<div class="modal">${inner}<div class="row2"><button class="btn ghost" data-act="close-popup">關閉</button></div></div>`;
+  stage.appendChild(el);
+  const log = el.querySelector('.fulllog');
+  if (log) log.scrollTop = log.scrollHeight;
 }
-function showPreviewUnit(unitId: string) {
-  const el = document.getElementById('preview');
-  if (!el || !view) return;
+function showCharSheet(unitId: string) {
   const u = liveGame().unit(unitId);
   const c = CHAR_DEFS[u.charId];
-  el.innerHTML = `<div class="charsheet">
-    <h3>${esc(c.name)}</h3><div class="tag">${esc(c.title)}　HP ${c.hp}｜AP ${c.ap}｜TP ${c.tp}｜AT ${c.at} × AP ${c.atkCost}</div>
+  popup(`<div class="charsheet">
+    <h3>${esc(u.name)}</h3><div class="tag">${esc(c.title)}　HP ${c.hp}｜AP ${c.ap}｜TP ${c.tp}｜AT ${c.at} × AP ${c.atkCost}</div>
     ${c.abilities.map((a, i) => `<div class="ab"><b>${i + 1}. ${esc(a.name)}</b>${a.active ? '<span class="act">主動</span>' : ''}：${esc(a.text)}</div>`).join('')}
-    <div class="ab" style="color:#9d8c70;margin-top:12px;font-size:15px">${esc(c.lore)}</div>
-  </div>`;
+    <div class="lore">${esc(c.lore)}</div></div>`);
+}
+function showFullLog() {
+  const st = view!;
+  popup(`<h2>戰鬥紀錄</h2><div class="fulllog">${st.log.map(l => {
+    const cls = l.text.startsWith('——') ? 'sys' : l.side === undefined ? '' : rel(l.side);
+    return `<div class="${cls}">${esc(l.text)}</div>`;
+  }).join('')}</div>`);
+}
+function showPile(unitId: string, kind: 'deck' | 'discard') {
+  const u = liveGame().unit(unitId);
+  const pile = kind === 'deck' ? u.deck : u.discard;
+  const hidden = pile.some(c => c.defId === 'hidden');
+  const counts = new Map<string, number>();
+  for (const c of pile) counts.set(c.defId, (counts.get(c.defId) ?? 0) + 1);
+  const items = hidden ? `<div class="item">對手的牌組內容看不到（${pile.length} 張）</div>`
+    : pile.length === 0 ? `<div class="item">沒有牌</div>`
+    : [...counts].map(([id, n]) => `<div class="item"><b>×${n}</b>${esc(CARD_DEFS[id].name)}</div>`).join('');
+  popup(`<h2>${esc(u.name)} 的${kind === 'deck' ? '牌組（剩下的牌，順序隱藏）' : '棄牌區'}　${pile.length} 張</h2><div class="cardlist">${items}</div>`);
+}
+function showMenu() {
+  popup(`<h2>離開這場對戰，回到大廳？</h2><div class="row2"><button class="btn" data-act="lobby">回到大廳</button></div>`);
 }
 
 // =====================================================================
@@ -299,17 +359,16 @@ function playFx(st: GameState) {
   let showcaseDone = false;
   for (const e of st.fx) {
     if (e.t === 'turn') {
-      if (lastActive !== e.player || true) {
-        const b = document.createElement('div');
-        b.className = 'turn-banner ' + rel(e.player);
-        b.textContent = e.player === me ? '你的回合' : `${st.players[e.player].name} 的回合`;
-        stage.appendChild(b);
-        setTimeout(() => b.remove(), 1700);
-      }
+      const b = document.createElement('div');
+      b.className = 'turn-banner ' + rel(e.player);
+      b.textContent = e.player === me ? '你的回合' : `${st.players[e.player].name} 的回合`;
+      stage.appendChild(b);
+      setTimeout(() => b.remove(), 1700);
       lastActive = e.player;
       continue;
     }
-    if (e.t === 'play' && !showcaseDone) {
+    if (e.t === 'play') {
+      if (showcaseDone) continue;
       showcaseDone = true;
       const sc = document.createElement('div');
       sc.className = 'showcase';
@@ -348,13 +407,12 @@ function toast(t: string) {
 // =====================================================================
 // 輸入
 // =====================================================================
-function send(a: Action) { ui.picked = null; session?.send(a); }
+function send(a: Action) { ui.picked = null; hoverDef = null; session?.send(a); }
 
 stage.addEventListener('click', e => {
   const t = e.target as HTMLElement;
   const q = <T extends HTMLElement = HTMLElement>(sel: string) => t.closest(sel) as T | null;
 
-  // 大廳
   const act = q('[data-act]');
   if (act) {
     const k = act.dataset.act;
@@ -366,10 +424,11 @@ stage.addEventListener('click', e => {
       const code = (stage.querySelector('#code') as HTMLInputElement).value.trim();
       if (!/^\d{6}$/.test(code)) { events.onError('房號是 6 位數字'); return; }
       session = new GuestSession(code, myName, events);
-    } else if (k === 'rematch') session?.rematch();
-    else if (k === 'lobby') renderLobby();
+    } else if (k === 'rematch') { lastPlayed = null; session?.rematch(); }
+    else if (k === 'lobby') { lastPlayed = null; renderLobby(); }
     else if (k === 'menu') showMenu();
-    else if (k === 'close-menu') stage.querySelector('.menu-bg')?.remove();
+    else if (k === 'fulllog') showFullLog();
+    else if (k === 'close-popup') stage.querySelector('.popup-bg')?.remove();
     return;
   }
   if (!view) return;
@@ -385,11 +444,14 @@ stage.addEventListener('click', e => {
   if (q('[data-answer-cards]')) { send({ type: 'answer', value: [...ui.selected] }); return; }
   if (q('[data-play-picked]') && ui.picked) { send({ type: 'play', unitId: ui.picked.unitId, cardUid: ui.picked.uid }); return; }
   if (q('[data-cancel-pick]')) { ui.picked = null; renderGame(); return; }
+  const pile = q('[data-pile]');
+  if (pile) { showPile(pile.dataset.pileUnit!, pile.dataset.pile as 'deck' | 'discard'); return; }
 
   const unitEl = q('[data-unit-click]');
-  if (unitEl && myPrompt?.kind === 'unit') {
+  if (unitEl) {
     const id = unitEl.dataset.unitClick!;
-    if (myPrompt.unitIds.includes(id)) send({ type: 'answer', value: id });
+    if (myPrompt?.kind === 'unit') { if (myPrompt.unitIds.includes(id)) send({ type: 'answer', value: id }); }
+    else showCharSheet(id);
     return;
   }
 
@@ -410,8 +472,7 @@ stage.addEventListener('click', e => {
       ui.picked = ui.picked?.uid === uid ? null : { unitId: cardEl.dataset.owner!, uid };
       renderGame();
     } else if (!st.prompt && st.active === me) {
-      const g = liveGame();
-      const err = g.checkAction(me, { type: 'play', unitId: cardEl.dataset.owner!, cardUid: uid });
+      const err = liveGame().checkAction(me, { type: 'play', unitId: cardEl.dataset.owner!, cardUid: uid });
       if (err) toast(err);
     }
   }
@@ -436,13 +497,15 @@ stage.addEventListener('keydown', e => {
   if ((e.target as HTMLElement).id === 'code' && e.key === 'Enter') (stage.querySelector('[data-act="join"]') as HTMLElement)?.click();
 });
 
-// 滑鼠移上去：右側顯示說明＋卡片傾斜
+// 電腦：滑鼠移到手牌上，展示區先預覽那張牌（只換展示區的小卡，不整頁重畫）
 stage.addEventListener('mouseover', e => {
-  const t = e.target as HTMLElement;
-  const c = t.closest('[data-preview-card]') as HTMLElement | null;
-  if (c) { showPreviewCard(c.dataset.previewCard!); return; }
-  const u = t.closest('[data-preview-unit]') as HTMLElement | null;
-  if (u) showPreviewUnit(u.dataset.previewUnit!);
+  const c = (e.target as HTMLElement).closest('.hand [data-preview-card]') as HTMLElement | null;
+  const slot = document.getElementById('showcard');
+  if (!c || !slot || ui.picked || view?.prompt) return;
+  const id = c.dataset.previewCard!;
+  if (hoverDef === id) return;
+  hoverDef = id;
+  slot.outerHTML = `<div class="showcard me" id="showcard">${cardInner(id)}</div>`;
 });
 stage.addEventListener('mousemove', e => {
   const el = (e.target as HTMLElement).closest('.tilt') as HTMLElement | null;
@@ -455,14 +518,6 @@ stage.addEventListener('mousemove', e => {
   el.style.setProperty('--sx', `${px * 100}%`);
   el.style.setProperty('--sy', `${py * 100}%`);
 });
-
-function showMenu() {
-  const el = document.createElement('div');
-  el.className = 'modal-bg menu-bg';
-  el.innerHTML = `<div class="modal"><h2>離開這場對戰，回到大廳？</h2>
-    <div class="row2"><button class="btn" data-act="lobby">回到大廳</button><button class="btn ghost" data-act="close-menu">繼續對戰</button></div></div>`;
-  stage.appendChild(el);
-}
 
 // 測試用：網址加 ?autostart=bot 或 ?autostart=hotseat 直接開始
 const auto = new URLSearchParams(location.search).get('autostart');
