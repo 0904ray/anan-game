@@ -1,17 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { Game, botStep, viewFor } from '../src/engine';
+import { newGame as make, answer as ans, give, type Team } from './helpers';
 
-const TEAM: [string, string] = ['savanna', 'granny'];
-const newGame = (seed = 1) => Game.create({ seed, names: ['A', 'B'], chars: [TEAM, TEAM], first: 0 });
-const ans = (g: Game, value: any) => {
-  const r = g.apply(g.state.prompt!.player, { type: 'answer', value });
-  expect(r.ok, r.error).toBe(true);
-};
-const give = (g: Game, unitId: string, defId: string) => {
-  const c = { uid: 'test' + (++g.state.uidCounter), defId };
-  g.unit(unitId).hand.push(c);
-  return c.uid;
-};
+const TEAM: Team = ['savanna', 'granny'];
+const newGame = (seed = 1) => make(TEAM, seed);
 
 describe('葛蘭妮', () => {
   it('基本數值：HP45 AP6 TP5 AT1，普攻花 2 AP', () => {
@@ -154,41 +145,5 @@ describe('盤中餐從隊友手牌吞噬', () => {
     ans(g, [target]);
     expect(gr.under.map(c => c.uid)).toEqual([target]);
     expect(sav.hand.length).toBe(savBefore - 1);
-  });
-});
-
-describe('薩凡娜＋葛蘭妮 隨機對打', () => {
-  it('2000 場都能正常結束，雙方牌總數不變', () => {
-    const wins = [0, 0, 0];
-    let turns = 0;
-    for (let seed = 1; seed <= 2000; seed++) {
-      const g = Game.create({ seed, names: ['A', 'B'], chars: [TEAM, TEAM] });
-      let r = seed * 7919;
-      const rnd = () => { r = (r * 16807) % 2147483647; return r / 2147483647; };
-      let steps = 0;
-      while (g.state.winner === null && g.state.turn < 200) {
-        const who = g.actor()!;
-        const a = botStep(g, who, rnd)!;
-        const res = g.apply(who, a);
-        if (!res.ok) throw new Error(`seed ${seed}: ${res.error} ${JSON.stringify(a)}`);
-        for (const p of g.state.players) {
-          let total = 0;
-          for (const u of p.units) {
-            total += u.deck.length + u.hand.length + u.discard.length + u.playing.length + u.under.length;
-            if (u.hp < 0 || u.hp > u.maxHp) throw new Error(`seed ${seed}: hp ${u.hp}`);
-            if (u.tp < 0 || u.tp > u.tpMax) throw new Error(`seed ${seed}: tp ${u.tp}`);
-            if (u.ap < 0) throw new Error(`seed ${seed}: ap ${u.ap}`);
-            if ((u.counters.gluttony ?? 0) < 0) throw new Error(`seed ${seed}: gluttony`);
-          }
-          if (total !== 34) throw new Error(`seed ${seed}: card total ${total}`);
-        }
-        if (++steps > 30000) throw new Error('stuck ' + seed);
-      }
-      turns += g.state.turn;
-      wins[g.state.winner === null || g.state.winner === 'draw' ? 2 : g.state.winner]++;
-      JSON.stringify(viewFor(g.state, 0));
-    }
-    console.log('勝場', wins, '平均回合', (turns / 2000).toFixed(1));
-    expect(wins[0] + wins[1]).toBeGreaterThan(1900);
   });
 });

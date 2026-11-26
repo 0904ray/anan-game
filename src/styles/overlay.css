@@ -1,0 +1,37 @@
+/* ===================== 彈出視窗、結算畫面、提示 ===================== */
+/* ----- 彈出視窗 ----- */
+.modal-bg { position: absolute; inset: 0; background: rgba(0, 0, 0, .55); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.modal { min-width: 640px; max-width: 900px; background: #1e1711; border: 3px solid #c8963e; border-radius: 18px; padding: 32px 40px; display: flex; flex-direction: column; gap: 22px; box-shadow: 0 30px 60px rgba(0, 0, 0, .8); }
+.modal h2 { font-size: 30px; color: #ffe2a0; line-height: 1.4; }
+.modal .opts { display: flex; flex-direction: column; gap: 12px; }
+.modal .row2 { display: flex; gap: 16px; justify-content: center; }
+.modal input[type=range] { width: 100%; height: 30px; }
+.modal .numval { font-size: 30px; text-align: center; color: #fff1c9; }
+/* 手機直向提示 */
+#rotate { display: none; position: fixed; inset: 0; z-index: 999; background: #0b0906; color: #f3d48a; flex-direction: column; align-items: center; justify-content: center; gap: 18px; text-align: center; font-size: 22px; }
+#rotate div { font-size: 64px; }
+#rotate button { font-size: 20px; padding: 10px 26px; border-radius: 10px; border: 2px solid #c8963e; background: #3a250d; color: #ffe7b2; }
+@media (orientation: portrait) and (max-width: 900px) { body:not(.rotate-ok) #rotate { display: flex; } }
+.lobby .note { font-size: 18px; color: #c9a46a; grid-column: 1 / -1; text-align: center; }
+
+/* 彈出視窗內容 */
+.charsheet { width: 760px; max-height: 760px; overflow: auto; font-size: 22px; line-height: 1.6; }
+.charsheet h3 { font-size: 34px; color: #ffd98c; }
+.charsheet .tag { color: #c8a978; font-size: 20px; margin-bottom: 8px; }
+.charsheet .ab { margin-top: 8px; }
+.charsheet .ab b { color: #ffcf7a; }
+.charsheet .ab .act { font-size: 15px; padding: 1px 8px; border-radius: 6px; background: #6e3c10; color: #ffd8a0; margin-left: 6px; }
+.charsheet .lore { color: #9d8c70; margin-top: 14px; font-size: 18px; }
+.fulllog { width: 820px; height: 680px; overflow-y: auto; font-size: 22px; line-height: 1.6; color: #cfc4b2; background: rgba(0, 0, 0, .3); border-radius: 12px; padding: 12px 18px; }
+.cardlist { display: flex; flex-wrap: wrap; gap: 12px; max-width: 900px; max-height: 640px; overflow-y: auto; }
+.cardlist .item { padding: 8px 16px; border-radius: 10px; border: 2px solid #6b5230; background: #2a1f15; font-size: 22px; }
+.cardlist .item b { color: #ffd56e; margin-right: 6px; }
+
+/* 結算畫面、提示訊息 */
+.gameover { position: absolute; inset: 0; background: rgba(0, 0, 0, .7); z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 30px; }
+.gameover h1 { font-size: 140px; letter-spacing: 30px; }
+.gameover h1.win { color: #ffd56e; text-shadow: 0 0 50px rgba(255, 200, 80, .8); }
+.gameover h1.lose { color: #9c8f86; }
+.gameover .row2 { display: flex; gap: 20px; }
+.toast { position: absolute; left: 50%; top: 40px; transform: translateX(-50%); background: #7a1d16; color: #fff; padding: 12px 28px; border-radius: 30px; font-size: 22px; z-index: 300; animation: toast 2.2s forwards; pointer-events: none; }
+@keyframes toast { 0% { opacity: 0; } 10%, 80% { opacity: 1; } 100% { opacity: 0; } }

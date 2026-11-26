@@ -1,5 +1,6 @@
 import Peer, { type DataConnection } from 'peerjs';
 import { Game, botStep, viewFor, type Action, type GameState, type PlayerIdx } from '../engine';
+import { DEFAULT_TEAMS, PEER_ID_PREFIX, BOT_DELAY_MS } from '../config';
 
 // =====================================================================
 // Session：畫面只跟 Session 溝通，不管是本機、電腦對手、還是連線
@@ -20,7 +21,6 @@ export interface Session {
   close(): void;
 }
 
-const DEFAULT_CHARS: [[string, string], [string, string]] = [['savanna', 'granny'], ['savanna', 'granny']];
 
 // ---------------------------------------------------------------------
 // 本機：雙人同螢幕／對戰電腦
@@ -32,7 +32,7 @@ export class LocalSession implements Session {
     this.newGame();
   }
   private newGame() {
-    this.game = Game.create({ names: this.names, chars: DEFAULT_CHARS });
+    this.game = Game.create({ seed: newSeed(), names: this.names, chars: DEFAULT_TEAMS });
     this.emit();
   }
   private me(): PlayerIdx {
@@ -47,10 +47,10 @@ export class LocalSession implements Session {
     clearTimeout(this.botTimer);
     if (this.game.actor() !== 1) return;
     this.botTimer = setTimeout(() => {
-      const a = botStep(this.game, 1);
+      const a = botStep(this.game, 1, Math.random);
       if (a) this.game.apply(1, a);
       this.emit();
-    }, 650);
+    }, BOT_DELAY_MS);
   }
   send(a: Action) {
     const who = this.mode === 'bot' ? 0 : (this.game.actor() ?? this.game.state.active);
@@ -72,7 +72,6 @@ type Msg =
   | { type: 'state'; view: GameState; me: PlayerIdx }
   | { type: 'error'; text: string };
 
-const ID_PREFIX = 'lenglun-card-';
 
 function peerOptions(): any {
   const q = new URLSearchParams(location.search);
@@ -82,6 +81,9 @@ function peerOptions(): any {
     host, port: Number(q.get('peerPort') ?? 9000), path: q.get('peerPath') ?? '/', secure: q.get('peerSecure') === '1', debug: 1,
   };
 }
+
+/** 每局的亂數種子（引擎只用這個種子，不自己取亂數） */
+const newSeed = () => Math.floor(Math.random() * 2 ** 31);
 
 export function randomRoomCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
@@ -95,7 +97,7 @@ export class HostSession implements Session {
   private guestName = '對手';
 
   constructor(public code: string, private myName: string, private ev: SessionEvents) {
-    this.peer = new Peer(ID_PREFIX + code, peerOptions());
+    this.peer = new Peer(PEER_ID_PREFIX + code, peerOptions());
     ev.onStatus('正在建立房間…');
     this.peer.on('open', () => ev.onStatus(`房間已建立，房號 ${code}，等待對手加入…`));
     this.peer.on('error', (e: any) => {
@@ -111,7 +113,7 @@ export class HostSession implements Session {
   }
   private onMsg(m: Msg) {
     if (m.type === 'hello') {
-      this.guestName = m.name || '對手';
+      this.guestName = String(m.name || '對手').slice(0, 12); // 對方送來的資料不能完全相信
       if (!this.game) this.start();
       else this.broadcast();
     } else if (m.type === 'action' && this.game) {
@@ -123,7 +125,7 @@ export class HostSession implements Session {
     }
   }
   private start() {
-    this.game = Game.create({ names: [this.myName, this.guestName], chars: DEFAULT_CHARS });
+    this.game = Game.create({ seed: newSeed(), names: [this.myName, this.guestName], chars: DEFAULT_TEAMS });
     this.ev.onStatus('對戰開始！');
     this.broadcast();
   }
@@ -147,11 +149,11 @@ export class GuestSession implements Session {
   private peer: Peer;
   private conn: DataConnection | null = null;
 
-  constructor(code: string, private myName: string, private ev: SessionEvents) {
+  constructor(code: string, private myName: string, ev: SessionEvents) {
     this.peer = new Peer(peerOptions());
     ev.onStatus('正在連線…');
     this.peer.on('open', () => {
-      const c = this.peer.connect(ID_PREFIX + code, { reliable: true });
+      const c = this.peer.connect(PEER_ID_PREFIX + code, { reliable: true });
       this.conn = c;
       c.on('open', () => { ev.onStatus('已連上房間，等待開始…'); c.send({ type: 'hello', name: this.myName } satisfies Msg); });
       c.on('data', d => {

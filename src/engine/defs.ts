@@ -54,13 +54,20 @@ export interface CharDef {
     onStrike?(g: Game, u: Unit): void;
     /** 使用下方的牌之後 */
     afterPlayUnder?(g: Game, u: Unit): void;
-    /** 此單位發動[收買]後 */
-    onBuy?(g: Game, u: Unit): void;
   };
 }
 
 export const CARD_DEFS: Record<string, CardDef> = {};
 export const CHAR_DEFS: Record<string, CharDef> = {};
+
+/**
+ * 「本回合結束時」的延遲效果。卡牌用 g.state.endOfTurn.push({ kind, by }) 排進去，
+ * 回合結束時由核心呼叫對應的處理函式（核心不需要知道任何角色的細節）。
+ */
+export const END_OF_TURN: Record<string, (g: Game, by: Unit) => void> = {};
+export function registerEndOfTurn(kind: string, fn: (g: Game, by: Unit) => void) {
+  END_OF_TURN[kind] = fn;
+}
 
 export function registerChar(c: CharDef, cards: CardDef[]) {
   CHAR_DEFS[c.id] = c;

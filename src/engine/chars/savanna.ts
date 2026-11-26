@@ -1,4 +1,4 @@
-import { registerChar, type CardDef, type CharDef, type Eff } from '../defs';
+import { registerChar, registerEndOfTurn, type CardDef, type CharDef, type Eff } from '../defs';
 import type { Game } from '../game';
 import type { Unit } from '../types';
 
@@ -197,3 +197,13 @@ const savanna: CharDef = {
 };
 
 registerChar(savanna, cards);
+
+// 武裝千金 [收買4]：回合結束時，敵方[重創]單位下回合只回復一半 TP
+registerEndOfTurn('halfTp', (g, by) => {
+  for (const en of g.enemiesOf(by.owner)) {
+    if (en.life === 'alive' && en.critical) {
+      en.halfTpNext = true;
+      g.log(`${en.name} 處於[重創]，下回合只能回復一半 TP`, by.owner);
+    }
+  }
+});

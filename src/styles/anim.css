@@ -1,0 +1,37 @@
+/* ===================== 特效與動畫 ===================== */
+/* ----- 特效 ----- */
+.float { position: absolute; left: 81px; top: 70px; font-size: 54px; font-weight: 900; pointer-events: none; z-index: 60; text-shadow: 0 3px 0 #000, 0 0 12px #000; animation: floatup 1.3s ease-out forwards; transform: translateX(-50%); white-space: nowrap; }
+.float.dmg { color: #ff5a4a; }
+.float.heal { color: #6dff9a; }
+.float.tp { color: #7cc8ff; font-size: 38px; top: 120px; }
+.float.status { color: #ffd34f; font-size: 44px; top: 20px; }
+@keyframes floatup { 0% { opacity: 0; transform: translate(-50%, 20px) scale(.6); } 15% { opacity: 1; transform: translate(-50%, 0) scale(1.15); } 100% { opacity: 0; transform: translate(-50%, -70px) scale(1); } }
+.shake .portrait { animation: shake .35s; }
+@keyframes shake { 0%, 100% { translate: 0 0; } 20% { translate: -10px 0; } 40% { translate: 9px 0; } 60% { translate: -6px 0; } 80% { translate: 4px 0; } }
+
+.turn-banner { position: absolute; left: 0; width: 1920px; top: 234px; height: 180px; display: flex; align-items: center; justify-content: center; font-size: 86px; font-weight: 900; letter-spacing: 16px; pointer-events: none; z-index: 90;
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, .8) 25%, rgba(0, 0, 0, .8) 75%, transparent); animation: banner 1.6s ease-in-out forwards; }
+.turn-banner.me { color: #ffd56e; text-shadow: 0 0 30px rgba(255, 200, 80, .7); }
+.turn-banner.op { color: #ff8f7a; text-shadow: 0 0 30px rgba(255, 110, 80, .6); }
+@keyframes banner { 0% { opacity: 0; transform: scaleY(0); } 15% { opacity: 1; transform: scaleY(1); } 80% { opacity: 1; } 100% { opacity: 0; } }
+
+
+
+
+/* ===================== 動畫 ===================== */
+.fxlayer { position: absolute; inset: 0; pointer-events: none; z-index: 110; }
+.busy .board { cursor: progress; }
+.card.pending { visibility: hidden; }
+.fly { position: absolute; left: 0; top: 0; width: 230px; height: 322px; transform-origin: 0 0; pointer-events: none; will-change: transform; }
+.fly .card.static { position: absolute; inset: 0; top: 0; transform: none !important; cursor: default; }
+.fly .flyback { position: absolute; inset: 0; border-radius: 14px; border: 3px solid #8b6a3a; background: repeating-linear-gradient(45deg, #3b2412 0 10px, #2b190b 10px 20px); box-shadow: 0 10px 22px rgba(0, 0, 0, .6); overflow: hidden; }
+.fly .flyback img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.fly.glow-me .card { box-shadow: 0 0 0 3px #ffe07a, 0 0 46px rgba(255, 207, 90, .85); border-color: #ffe07a; }
+.fly.glow-op .card { box-shadow: 0 0 0 3px #ff8f7a, 0 0 46px rgba(255, 110, 80, .85); border-color: #ff8f7a; }
+.fly.devouring .card { box-shadow: 0 0 0 3px #c04a7a, 0 0 40px rgba(200, 60, 140, .9); border-color: #c04a7a; filter: saturate(.6) hue-rotate(-30deg); }
+.fxlayer .float { position: absolute; transform: translateX(-50%); }
+.float.counter { color: #ffd56e; font-size: 30px; }
+.float.devour { color: #ff7ac0; font-size: 44px; }
+.slash { position: absolute; width: 180px; height: 14px; margin: -7px 0 0 -90px; border-radius: 7px; background: linear-gradient(90deg, transparent, #fff 40%, #ffd56e 60%, transparent); transform: rotate(-35deg) scaleX(0); animation: slash .35s ease-out forwards; box-shadow: 0 0 20px #fff; }
+@keyframes slash { 0% { transform: rotate(-35deg) scaleX(0); opacity: 1; } 50% { transform: rotate(-35deg) scaleX(1.1); opacity: 1; } 100% { transform: rotate(-35deg) scaleX(1.2); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .slash { animation: none; display: none; } }

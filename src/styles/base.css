@@ -1,0 +1,21 @@
+/* 基本設定、16:9 舞台、共用按鈕 */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #07080c; }
+body { font-family: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif; color: #f1ece2; user-select: none; }
+button { font-family: inherit; }
+
+#viewport { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+#stage {
+  position: relative; width: 1920px; height: 1080px; flex: none; overflow: hidden;
+  transform-origin: center center;
+  background: radial-gradient(ellipse at 40% 45%, #2a1f17 0%, #140f0c 55%, #07060a 100%);
+}
+.bg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .55; pointer-events: none; }
+img.missing { display: none !important; }
+
+/* ===================== 大廳 ===================== */
+.btn { font-size: 24px; padding: 16px 20px; border-radius: 12px; border: 2px solid #c8963e; background: linear-gradient(#5a3b16, #3a250d); color: #ffe7b2; cursor: pointer; transition: transform .12s, filter .12s; }
+.btn:hover { filter: brightness(1.25); transform: translateY(-2px); }
+.btn.ghost { background: transparent; border-color: #6b5230; color: #d8c39b; }
+.btn.small { font-size: 18px; padding: 8px 14px; }
+.btn:disabled { opacity: .4; cursor: not-allowed; transform: none; filter: none; }

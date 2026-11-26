@@ -1,7 +1,7 @@
 import type {
   Action, Answer, CardInst, GameState, PlayerIdx, PlayerState, Prompt, Unit, FxBody, UnitSnap,
 } from './types';
-import { CARD_DEFS, CHAR_DEFS, type Eff } from './defs';
+import { CARD_DEFS, CHAR_DEFS, END_OF_TURN, type Eff } from './defs';
 
 export interface ApplyResult { ok: boolean; error?: string }
 
@@ -16,12 +16,13 @@ export class Game {
   // ======================================================================
   // 建立新對局
   // ======================================================================
-  static create(opts: { seed?: number; names: [string, string]; chars: [[string, string], [string, string]]; first?: PlayerIdx }): Game {
-    const seed = opts.seed ?? Math.floor(Math.random() * 2 ** 31);
+  /** 種子由呼叫端給（引擎本身不碰 Math.random），同一個種子＝同一局 */
+  static create(opts: { seed: number; names: [string, string]; chars: [[string, string], [string, string]]; first?: PlayerIdx }): Game {
+    const seed = opts.seed;
     const state: GameState = {
       seed, turn: 0, active: 0, first: 0,
       players: [null as any, null as any],
-      prompt: null, winner: null, log: [], fx: [], fxSeq: 0, endOfTurn: [], uidCounter: 0, gameId: seed.toString(36) + '-' + Date.now().toString(36),
+      prompt: null, winner: null, log: [], fx: [], fxSeq: 0, endOfTurn: [], uidCounter: 0, gameId: 'g' + seed.toString(36),
     };
     const g = new Game(state);
     for (const p of [0, 1] as PlayerIdx[]) {
@@ -371,16 +372,7 @@ export class Game {
   private *endTurn(): Eff {
     const st = this.state;
     const p = st.active;
-    for (const e of st.endOfTurn) {
-      if (e.kind === 'halfTp') {
-        for (const en of this.enemiesOf(p)) {
-          if (en.life === 'alive' && en.critical) {
-            en.halfTpNext = true;
-            this.log(`${en.name} 處於[重創]，下回合只能回復一半 TP`, p);
-          }
-        }
-      }
-    }
+    for (const e of st.endOfTurn) END_OF_TURN[e.kind]?.(this, this.unit(e.by));
     st.endOfTurn = [];
     this.log(`${st.players[p].name} 結束回合`, p);
     yield* this.startTurn((1 - p) as PlayerIdx);

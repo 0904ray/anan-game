@@ -38,7 +38,7 @@ function gain(g: Game, u: Unit, n: number) {
 }
 
 /** 吞噬牌 ≥ 4 張時減費 */
-const discount = (base: number, off: number) => (g: Game, u: Unit) => (u.under.length >= 4 ? base - off : base);
+const discount = (base: number, off: number) => (_g: Game, u: Unit) => (u.under.length >= 4 ? base - off : base);
 
 const cards: CardDef[] = [
   {

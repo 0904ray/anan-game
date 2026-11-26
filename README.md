@@ -36,25 +36,17 @@ npm run build    # 重新打包到 docs/
 
 ## 程式結構
 
-```
-src/
-  engine/            ← 遊戲規則（純邏輯，跟畫面完全分開）
-    types.ts         ← 資料結構
-    game.ts          ← 回合、AP、TP、負傷/重創/瀕死/處決、SP、居前、救治
-    defs.ts          ← 角色／卡牌定義的格式
-    chars/savanna.ts ← 薩凡娜的能力和 17 張牌
-    chars/granny.ts  ← 葛蘭妮的能力和 17 張牌
-  net/session.ts     ← 本機、電腦、連線（PeerJS）
-  main.ts            ← 畫面
-  style.css          ← 畫面樣式（偽 3D 效果在這裡）
-test/engine.test.ts  ← 規則測試
-```
+詳細的架構、慣例、新增角色的步驟都在 [`AGENTS.md`](./AGENTS.md)（給一起協作的 AI 和人看）。簡單來說：
 
-### 新增角色
-
-1. 複製 `src/engine/chars/savanna.ts` 改成新角色
-2. 在 `src/engine/index.ts` 加一行 `import './chars/新角色';`
-3. 在 `src/net/session.ts` 的 `DEFAULT_CHARS` 換成要上場的角色（之後會做選角畫面）
+```
+src/engine/   遊戲規則（純邏輯，跟畫面完全分開）
+  chars/      每個角色一個檔；新角色在 chars/index.ts 登記
+src/net/      本機、電腦、PeerJS 連線
+src/ui/       畫面：render（畫）、anim（動畫）、input（操作）、popups、lobby
+src/styles/   樣式，依畫面區塊分檔
+src/config.ts 預設隊伍等設定
+test/         規則測試、每個角色的測試、隨機對打壓力測試
+```
 
 ## 規則實作備註
 
