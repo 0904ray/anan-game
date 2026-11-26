@@ -107,7 +107,7 @@ export function registerChar(c: CharDef, cards: CardDef[]) {
 }
 
 /**
- * 掛在單位 counters 上的共用狀態（例如[墜淵]）：畫面會自動顯示成徽章，
+ * 掛在單位 counters 上的共用狀態（例如[墬淵]）：畫面會自動顯示成徽章，
  * 不需要在畫面寫任何角色專屬的判斷。
  */
 export interface StatusDef { id: string; name: string }

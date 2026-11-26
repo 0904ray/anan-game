@@ -81,7 +81,7 @@ test/
    - 角色計數器（財富、暴食）→ `CharDef.counters` ＋ `g.counter()` / `g.addCounter()`
    - 被動觸發 → `CharDef.hooks`（`onAllyDiscard`、`onAllyShuffle`、`onUnitCritical`、`onTurnStartBeforeDraw`、`onOwnTurnEnd`、`atBonus`、`onStrike`、`afterPlayUnder`…完整清單看 `defs.ts`）
    - 改變能指定的敵人（例如不受 SP 限制）→ `hooks.enemyTargets`
-   - 掛在單位身上、要顯示徽章的狀態（例如[墜淵]）→ `registerStatus()`＋`g.addCounter()`
+   - 掛在單位身上、要顯示徽章的狀態（例如[墬淵]）→ `registerStatus()`＋`g.addCounter()`
    - 「(抽出時)」效果 → 卡牌 `drawText`（卡面文字）＋`onDrawCard`（結算）；寫法比照 `discardText`／`onDiscard`
    - 牌的去向：`g.mill()`（牌組→棄牌區）、`g.removeHandCards()`／`g.removeDeckTop()`／`removeAfterPlay`（移出牌局）、`g.abilityShuffle()`（[洗牌]）
    - 「本回合結束時」→ 卡牌 `g.state.endOfTurn.push({ kind, by })`，角色檔裡 `registerEndOfTurn(kind, fn)`

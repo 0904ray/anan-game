@@ -69,7 +69,7 @@ export function badges(g: Game, u: Unit): string {
     if (u.noWound) b.push(`<span class="badge buff">不負傷</span>`);
     if (u.noTpLoss) b.push(`<span class="badge buff">TP鎖定</span>`);
     if (u.halfTpNext) b.push(`<span class="badge crit">半回TP</span>`);
-    // 掛在單位身上的共用狀態（例如[墜淵]）：角色檔 registerStatus 之後就會自動顯示
+    // 掛在單位身上的共用狀態（例如[墬淵]）：角色檔 registerStatus 之後就會自動顯示
     for (const s of Object.values(STATUS_DEFS)) if ((u.counters[s.id] ?? 0) > 0) b.push(`<span class="badge crit">${esc(s.name)}</span>`);
   }
   return b.join('');
