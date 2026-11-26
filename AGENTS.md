@@ -57,6 +57,7 @@ src/
     lobby.ts             大廳
     select.ts            選角畫面（自動列出 roster() 的所有角色）
     input.ts             所有輸入事件、建立 Session
+    preload.ts           開場預載所有圖片（從角色、卡牌登記表自動列出）
   styles/                依區塊分檔：base / lobby / select / board / cards / face（卡面卡背）/ overlay / anim / tone（色調）
 test/
   helpers.ts             newGame / answer / give / simulate
@@ -91,7 +92,7 @@ test/
 6. 在 `CharDef` 設 `theme`（角色主題色，CSS 顏色字串），卡面細框、名稱條、牌堆外框會用到。
 7. **圖片提示詞不用寫**：`圖片提示詞.md` 由專案管理（Claude，負責架構與程式管理的那位）統一撰寫，風格和規格才會一致。
    新角色的 PR 說明裡請附一段「**外觀設定**」，提供：外型、**武器**、代表色、個性氣質，以及每張卡想呈現的畫面重點（一兩句就好）。
-   圖片檔名規格照舊：立繪 `assets/chars/<角色id>.png`、卡圖 `assets/cards/<卡牌id>.png`、卡面底框 `assets/frames/<角色id>.png`、卡背 `assets/backs/<角色id>.png`。
+   圖片檔名規格：立繪 `assets/chars/<角色id>`、卡圖 `assets/cards/<卡牌id>`、卡面底框 `assets/frames/<角色id>`、卡背 `assets/backs/<角色id>`（.webp）。
 8. 登記後選角畫面會**自動出現**新角色，不用改任何畫面程式。還沒做完、不想讓玩家選到的角色，在 `CharDef` 設 `hidden: true`。
 9. 想直接測新角色：改 `src/config.ts` 的 `DEFAULT_TEAMS`，然後開 `?autostart=bot`。
 
@@ -100,7 +101,8 @@ test/
 - 固定 16:9 舞台，座標以 **1920×1080** 為準（`#stage` 會等比縮放）。版面座標寫在 `styles/board.css` 開頭的註解。
 - 任何會進 `innerHTML` 的文字都要過 `esc()`，尤其是玩家名字（來自網路）。
 - 點擊用 `data-*` 屬性，由 `ui/input.ts` 統一處理；render 函式不綁事件。
-- 圖片放在 `public/assets/`；沒有圖時畫面會自動顯示佔位色塊，不要因為缺圖而報錯。
+- 圖片放在 `public/assets/`，格式是 **WebP**（`.png` 也讀得到，但會比較慢）。路徑在 `ui/dom.ts` 的 `ASSET` 一律不寫副檔名，開場時 `ui/preload.ts` 會把所有圖載好、決定實際檔案。沒有圖時畫面會自動顯示佔位色塊，不要因為缺圖而報錯。
+- 新圖片由專案管理（Claude）處理：用 `python scripts/optimize_images.py` 把生圖 AI 的 PNG 縮成實際需要的大小再轉 WebP（卡圖 768×512、立繪 640×960、卡面底框和卡背 512×768）。不要把原尺寸 PNG 直接放進 `public/assets/`。
 - 卡面一律用 `render.ts` 的 `cardInner()`、卡背一律用 `backHtml()`，不要自己拼卡片 HTML。卡面文字永遠由遊戲畫在角色底框**上面**（深色半透明文字框），所以底框圖只負責外觀、不能放文字。
 - 動畫播放時 `ui/anim.ts` 的 `isBusy()` 為 true，輸入會被擋下（點擊＝加速）。
 - 色調層次統一在 `styles/tone.css`：只有能操作、正在發生的東西是全彩，其他圖退到背景。畫面太刺眼或太暗時只調那裡的變數，不要在別的地方另外加濾鏡。

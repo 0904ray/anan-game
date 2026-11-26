@@ -33,7 +33,8 @@ npm run build    # 重新打包到 docs/
 
 ## 換上圖片
 
-圖片放在 `public/assets/`（開發模式）或 `docs/assets/`（直接開 docs 的版本），沒放圖時會顯示佔位圖。
+圖片放在 `public/assets/`，打包時會複製到 `docs/assets/`，沒放圖時會顯示佔位圖。開遊戲時會先預載所有圖片（有進度條），之後畫面和動畫都不會閃。
+圖片格式是 WebP：生圖 AI 的原圖（PNG）用 `python scripts/optimize_images.py` 轉換，會縮成實際需要的大小（31 張圖約 2.6 MB）。
 每個角色有一套統一規格的圖：立繪 `chars/`、卡圖 `cards/`、卡面底框 `frames/`、卡背 `backs/`（詳見提示詞檔的「卡面與卡背」）。
 檔名和 AI 生圖提示詞都在 [`圖片提示詞.md`](./圖片提示詞.md)。
 

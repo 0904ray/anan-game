@@ -1,15 +1,35 @@
 // 畫面共用：舞台元素、圖片路徑、小工具
+
+/**
+ * 圖片路徑一律寫「不含副檔名」的基本路徑；實際檔案（.webp 優先、其次 .png）由 ui/preload.ts 在開場時找好。
+ * 找不到的圖回傳一個一定載入失敗的網址，畫面會自動露出佔位圖。
+ */
+const resolved = new Map<string, string | null>();
+const MISSING = 'data:,';
+export function setResolvedAsset(base: string, url: string | null) { resolved.set(base, url); }
+const url = (base: string) => (resolved.has(base) ? resolved.get(base) ?? MISSING : `${base}.webp`);
+
+export const ASSET_BASE = {
+  char: (id: string) => `assets/chars/${id}`,
+  card: (id: string) => `assets/cards/${id}`,
+  frame: (charId: string) => `assets/frames/${charId}`,
+  backOf: (charId: string) => `assets/backs/${charId}`,
+  table: 'assets/bg/table',
+  lobby: 'assets/bg/lobby',
+  back: 'assets/ui/card-back',
+};
+
 export const ASSET = {
-  char: (id: string) => `assets/chars/${id}.png`,
-  card: (id: string) => `assets/cards/${id}.png`,
-  table: 'assets/bg/table.png',
-  lobby: 'assets/bg/lobby.png',
+  char: (id: string) => url(ASSET_BASE.char(id)),
+  card: (id: string) => url(ASSET_BASE.card(id)),
+  get table() { return url(ASSET_BASE.table); },
+  get lobby() { return url(ASSET_BASE.lobby); },
   /** 通用卡背（角色沒有專屬卡背時使用） */
-  back: 'assets/ui/card-back.png',
+  get back() { return url(ASSET_BASE.back); },
   /** 角色專屬卡面底框：該角色所有卡牌共用 */
-  frame: (charId: string) => `assets/frames/${charId}.png`,
+  frame: (charId: string) => url(ASSET_BASE.frame(charId)),
   /** 角色專屬卡背：該角色的牌組、對手手牌、抽牌動畫 */
-  backOf: (charId: string) => `assets/backs/${charId}.png`,
+  backOf: (charId: string) => url(ASSET_BASE.backOf(charId)),
 };
 
 export const stage = document.getElementById('stage')!;
