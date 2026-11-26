@@ -11,6 +11,8 @@ button { font-family: inherit; }
   background: radial-gradient(ellipse at 40% 45%, #2a1f17 0%, #140f0c 55%, #07060a 100%);
 }
 .bg-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .55; pointer-events: none; }
+/* 對戰牌桌的背景壓暗，讓角色、卡牌與中央帶的資訊更清楚 */
+.bg-img.table { opacity: .34; filter: brightness(.7) saturate(.85); }
 img.missing { display: none !important; }
 
 /* ===================== 大廳 ===================== */

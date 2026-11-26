@@ -47,7 +47,7 @@ export function renderGame(anim?: AnimCtx) {
   const op = (1 - me) as PlayerIdx;
   const targetIds = myPrompt?.kind === 'unit' ? myPrompt.unitIds : [];
 
-  let html = `<img class="bg-img" src="${ASSET.table}"><div class="board">`;
+  let html = `<img class="bg-img table" src="${ASSET.table}"><div class="board">`;
   for (const u of st.players[op].units) html += unitHtml(g, show(u), 'theirs', targetIds, myTurn) + miniPilesHtml(show(u));
   html += bandHtml(st, g, myPrompt, myTurn, ro);
   for (const u of st.players[me].units) html += unitHtml(g, show(u), 'mine', targetIds, myTurn) + pilesHtml(show(u)) + handHtml(g, u, myPrompt, myTurn, anim?.hidden);
