@@ -19,6 +19,12 @@
 .card.selected { border-color: #4dff9a; box-shadow: 0 0 0 3px #4dff9a, 0 0 24px #4dff9a; transform: translateX(var(--x)) translateY(-44px) rotate(0deg); }
 .card.picked { border-color: #ffe07a; box-shadow: 0 0 0 3px #ffe07a, 0 0 30px #ffcf5a; }
 
+/* ----- 拖曳出牌：手牌拿在手上，拖到上方中央帶 ----- */
+.card.playable { touch-action: none; }
+.card.dragging { opacity: .2; filter: saturate(.5) brightness(.8); }
+.card.drag-ghost { position: fixed; left: 0; top: 0; margin: 0; pointer-events: none; z-index: 9000;
+  transform-origin: 50% 50%; transition: none !important; will-change: transform;
+  box-shadow: 0 30px 55px rgba(0, 0, 0, .7), 0 0 26px rgba(255, 207, 90, .35); }
 
 .cost.cheap { background: radial-gradient(#b6ff9a, #3d9a16) !important; color: #0e2a03 !important; }
 .card .ctext.long { font-size: 13.5px; line-height: 1.35; }
