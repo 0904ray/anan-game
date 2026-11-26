@@ -41,7 +41,11 @@ const ui = {
   picked: null as { unitId: string; uid: string } | null, // 準備打出的牌
   numberVal: 0,
 };
-let myName = localStorage.getItem('cg-name') || '玩家';
+let myName = '玩家';
+try { myName = localStorage.getItem('cg-name') || '玩家'; } catch { /* 預覽環境可能不能用 localStorage */ }
+/** 嵌在 Claude 預覽框裡時不能用 WebRTC，所以關掉連線功能 */
+const ONLINE_OK = (() => { try { if (window.self !== window.top) return false; new RTCPeerConnection().close(); return true; } catch { return false; } })();
+document.getElementById('rotate-ok')?.addEventListener('click', () => document.body.classList.add('rotate-ok'));
 
 // =====================================================================
 // 大廳
@@ -57,10 +61,11 @@ function renderLobby(status = '', roomCode = '') {
       <div class="sub">暫定名稱 · 測試版 v0.1</div>
       <div class="panel">
         <label>你的名字 <input id="name" maxlength="12" value="${esc(myName)}"></label>
-        <button class="btn" data-act="host">建立房間</button>
-        <div class="join-row"><input id="code" maxlength="6" placeholder="輸入房號"><button class="btn" data-act="join">加入</button></div>
+        <button class="btn" data-act="host" ${ONLINE_OK ? '' : 'disabled'}>建立房間</button>
+        <div class="join-row"><input id="code" maxlength="6" inputmode="numeric" placeholder="輸入房號" ${ONLINE_OK ? '' : 'disabled'}><button class="btn" data-act="join" ${ONLINE_OK ? '' : 'disabled'}>加入</button></div>
         <button class="btn ghost" data-act="bot">對戰電腦（隨機出牌）</button>
         <button class="btn ghost" data-act="hotseat">本機雙人（同一台輪流）</button>
+        ${ONLINE_OK ? '' : '<div class="note">這個預覽版不能連線對戰，請先玩「對戰電腦」或「本機雙人」</div>'}
       </div>
       ${roomCode ? `<div class="roomcode">${roomCode}</div>` : ''}
       <div class="status">${esc(status)}</div>
@@ -76,7 +81,7 @@ const events = {
 
 function readName() {
   const n = (stage.querySelector('#name') as HTMLInputElement | null)?.value.trim();
-  if (n) { myName = n; localStorage.setItem('cg-name', n); }
+  if (n) { myName = n; try { localStorage.setItem('cg-name', n); } catch { } }
 }
 
 // =====================================================================
@@ -239,7 +244,7 @@ function sidebarHtml(st: GameState, myTurn: boolean): string {
     <div class="turninfo"><span>第 ${st.turn} 回合</span><span class="who ${rel(st.active)}">${esc(activeName)}</span>
       <button class="btn ghost small" data-act="menu">選單</button></div>
     <button class="btn endturn ${myTurn ? 'glow' : ''}" data-end ${myTurn ? '' : 'disabled'}>結束回合</button>
-    <div class="preview" id="preview"><div class="hint">把滑鼠移到卡牌或角色上<br>這裡會顯示完整說明</div></div>
+    <div class="preview" id="preview"><div class="hint">把滑鼠移到（手機：點一下）卡牌或角色上<br>這裡會顯示完整說明</div></div>
     <div class="log">${logHtml}</div>
   </div>`;
 }
@@ -363,7 +368,8 @@ stage.addEventListener('click', e => {
       session = new GuestSession(code, myName, events);
     } else if (k === 'rematch') session?.rematch();
     else if (k === 'lobby') renderLobby();
-    else if (k === 'menu') { if (confirmLeave()) renderLobby(); }
+    else if (k === 'menu') showMenu();
+    else if (k === 'close-menu') stage.querySelector('.menu-bg')?.remove();
     return;
   }
   if (!view) return;
@@ -450,7 +456,13 @@ stage.addEventListener('mousemove', e => {
   el.style.setProperty('--sy', `${py * 100}%`);
 });
 
-function confirmLeave() { return window.confirm('離開這場對戰回到大廳？'); }
+function showMenu() {
+  const el = document.createElement('div');
+  el.className = 'modal-bg menu-bg';
+  el.innerHTML = `<div class="modal"><h2>離開這場對戰，回到大廳？</h2>
+    <div class="row2"><button class="btn" data-act="lobby">回到大廳</button><button class="btn ghost" data-act="close-menu">繼續對戰</button></div></div>`;
+  stage.appendChild(el);
+}
 
 // 測試用：網址加 ?autostart=bot 或 ?autostart=hotseat 直接開始
 const auto = new URLSearchParams(location.search).get('autostart');

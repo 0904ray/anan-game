@@ -196,3 +196,10 @@ img.missing { display: none !important; }
 .toast { position: absolute; left: 50%; top: 40px; transform: translateX(-50%); background: #7a1d16; color: #fff; padding: 12px 28px; border-radius: 30px; font-size: 22px; z-index: 300; animation: toast 2.2s forwards; pointer-events: none; }
 @keyframes toast { 0% { opacity: 0; } 10%, 80% { opacity: 1; } 100% { opacity: 0; } }
 .topright { position: absolute; right: 20px; top: 16px; }
+
+/* 手機直向提示 */
+#rotate { display: none; position: fixed; inset: 0; z-index: 999; background: #0b0906; color: #f3d48a; flex-direction: column; align-items: center; justify-content: center; gap: 18px; text-align: center; font-size: 22px; }
+#rotate div { font-size: 64px; }
+#rotate button { font-size: 20px; padding: 10px 26px; border-radius: 10px; border: 2px solid #c8963e; background: #3a250d; color: #ffe7b2; }
+@media (orientation: portrait) and (max-width: 900px) { body:not(.rotate-ok) #rotate { display: flex; } }
+.lobby .note { font-size: 18px; color: #c9a46a; grid-column: 1 / -1; text-align: center; }
