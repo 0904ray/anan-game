@@ -14,7 +14,9 @@ export interface CardDef {
   costFor?(g: Game, u: Unit): number;
   discardText?: string;  // (棄置時) 效果說明
   play(g: Game, u: Unit): Eff;
-  /** 抽到手上時（例如「抽出此牌時」的效果）；不是 generator，不能要求玩家選擇 */
+  /** (抽出時) 效果說明：卡面會畫在效果文字前面，寫法和 discardText 一樣 */
+  drawText?: string;
+  /** (抽出時) 抽到手上的當下結算（含開局抽牌）；不是 generator，不能要求玩家選擇 */
   onDrawCard?(g: Game, u: Unit, card: CardInst): void;
   /** 使用後移出牌局：不進棄牌區，也不會再被洗回牌組 */
   removeAfterPlay?: boolean;
@@ -105,7 +107,7 @@ export function registerChar(c: CharDef, cards: CardDef[]) {
 }
 
 /**
- * 掛在單位 counters 上的共用狀態（例如[墬淵]）：畫面會自動顯示成徽章，
+ * 掛在單位 counters 上的共用狀態（例如[墜淵]）：畫面會自動顯示成徽章，
  * 不需要在畫面寫任何角色專屬的判斷。
  */
 export interface StatusDef { id: string; name: string }

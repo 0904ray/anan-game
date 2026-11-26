@@ -94,7 +94,7 @@ export class Game {
   enemiesOf(owner: PlayerIdx): Unit[] { return this.state.players[1 - owner].units.filter(x => x.life !== 'dead'); }
   effSp(u: Unit): number { return u.life === 'dying' ? -1 : u.baseSp + u.spBonus; }
   isWounded(u: Unit): boolean { return u.life === 'alive' && !u.noWound && u.tp <= Math.floor(this.effTpMax(u) / 2); }
-  /** 目前的最大 TP（含永久減少，例如[墬淵]），最低 1 */
+  /** 目前的最大 TP（含永久減少，例如[墜淵]），最低 1 */
   effTpMax(u: Unit): number { return Math.max(1, u.tpMax - u.tpMaxDown); }
   /** SP 規則：只能指定敵方 SP 最高的單位（同分皆可） */
   targetableEnemies(owner: PlayerIdx): Unit[] {
@@ -495,7 +495,7 @@ export class Game {
       this.fx({ t: 'remove', unitId: u.id, defId: card.defId, from: 'deck' });
       k++;
     }
-    if (k) this.log(`${u.name} 從牌組移除 ${k} 張牌`, u.owner);
+    if (k) this.log(`${u.name} 從牌組將 ${k} 張牌[移出牌局]`, u.owner);
     return k;
   }
 
@@ -578,7 +578,7 @@ export class Game {
       this.log(`${u.name} 陷入[重創]！-3 HP（直傷）`, u.owner);
       this.fx({ t: 'status', unitId: u.id, text: '重創' });
       this.dealHp(u, 3);
-      // 「任一單位進入[重創]」的被動（例如給予[墬淵]、瀆神海域的額外直傷）
+      // 「任一單位進入[重創]」的被動（例如給予[墜淵]、瀆神海域的額外直傷）
       for (const src of this.allUnits()) {
         if (src.life === 'alive') CHAR_DEFS[src.charId].hooks?.onUnitCritical?.(this, src, u);
       }

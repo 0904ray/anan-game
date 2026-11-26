@@ -35,7 +35,7 @@ export function openZoom(defId: string, cost?: number) {
   const k = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
   el.style.setProperty('--k', String(k));
   const d = CARD_DEFS[defId];
-  const hasKw = keywordsIn(d.text).length > 0 || !!d.discardText;
+  const hasKw = keywordsIn(d.text).length > 0 || !!d.discardText || !!d.drawText;
   el.innerHTML = `${hasKw ? `<div class="zoom-info empty" style="--theme:${themeOf(d.charId)}"><div class="zi-hint">指著或點卡上有底線的詞<br>這裡會顯示說明</div></div>` : ''}
     <div class="zoom-cardbox"><div class="card zoomcard">${cardInner(defId, cost)}</div></div>
     <div class="zoom-hint">點空白處關閉</div>`;

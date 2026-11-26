@@ -79,7 +79,11 @@ test/
    如果新機制讓牌或數值用新的方式移動，呼叫 `g.fx({...})`，並在 `ui/anim.ts` 的 `playEvent` 加對應動畫。每個事件都會自動帶當下的數值快照。
 5. **角色專屬的東西不進核心**：
    - 角色計數器（財富、暴食）→ `CharDef.counters` ＋ `g.counter()` / `g.addCounter()`
-   - 被動觸發 → `CharDef.hooks`（`onAllyDiscard`、`onTurnStartBeforeDraw`、`atBonus`、`onStrike`、`afterPlayUnder`）
+   - 被動觸發 → `CharDef.hooks`（`onAllyDiscard`、`onAllyShuffle`、`onUnitCritical`、`onTurnStartBeforeDraw`、`onOwnTurnEnd`、`atBonus`、`onStrike`、`afterPlayUnder`…完整清單看 `defs.ts`）
+   - 改變能指定的敵人（例如不受 SP 限制）→ `hooks.enemyTargets`
+   - 掛在單位身上、要顯示徽章的狀態（例如[墜淵]）→ `registerStatus()`＋`g.addCounter()`
+   - 「(抽出時)」效果 → 卡牌 `drawText`（卡面文字）＋`onDrawCard`（結算）；寫法比照 `discardText`／`onDiscard`
+   - 牌的去向：`g.mill()`（牌組→棄牌區）、`g.removeHandCards()`／`g.removeDeckTop()`／`removeAfterPlay`（移出牌局）、`g.abilityShuffle()`（[洗牌]）
    - 「本回合結束時」→ 卡牌 `g.state.endOfTurn.push({ kind, by })`，角色檔裡 `registerEndOfTurn(kind, fn)`
    - 會變動的費用 → `CardDef.costFor`；角色下方的牌堆 → `Unit.under` ＋ `CharDef.underName` / `canPlayUnder`
    - **真的需要新的觸發時機**，在 `defs.ts` 的 hooks 加一個**通用**的 hook，在 `game.ts` 適當位置呼叫。不要在 `game.ts` 寫 `if (charId === 'xxx')`。
@@ -98,7 +102,7 @@ test/
    新角色的 PR 說明裡請附一段「**外觀設定**」，提供：外型、**武器**、代表色、個性氣質，以及每張卡想呈現的畫面重點（一兩句就好）。
    圖片檔名規格：立繪 `assets/chars/<角色id>`、卡圖 `assets/cards/<卡牌id>`、卡背 `assets/backs/<角色id>`（.webp）。卡面不用底框圖，外框用 `theme` 主題色。
 8. 登記後選角畫面會**自動出現**新角色，不用改任何畫面程式。還沒做完、不想讓玩家選到的角色，在 `CharDef` 設 `hidden: true`。
-9. 想直接測新角色：改 `src/config.ts` 的 `DEFAULT_TEAMS`，然後開 `?autostart=bot`。
+9. 想直接測新角色：開 `?autostart=bot&teams=<我方角色1>,<我方角色2>;<對方角色1>,<對方角色2>`（例如 `?autostart=bot&teams=ranis,savanna;saviel,granny`），或改 `src/config.ts` 的 `DEFAULT_TEAMS`。
 
 ## 畫面慣例
 

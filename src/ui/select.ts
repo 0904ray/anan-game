@@ -63,7 +63,7 @@ function detailHtml(id: string | null): string {
   const c = CHAR_DEFS[id];
   const deck = c.deck.map(([defId, n]) => {
     const d = CARD_DEFS[defId];
-    return `<div class="sel-deckrow" data-zoom="${defId}"><span class="cost">${d.cost}</span><div><b>${esc(d.name)}</b> ×${n}<div class="txt">${richText(d.text)}${d.discardText ? `<span class="dis">${kwSpan('（棄置時）')}${richText(d.discardText)}</span>` : ''}</div></div></div>`;
+    return `<div class="sel-deckrow" data-zoom="${defId}"><span class="cost">${d.cost}</span><div><b>${esc(d.name)}</b> ×${n}<div class="txt">${d.drawText ? `<span class="drw">${kwSpan('（抽出時）')}${richText(d.drawText)}</span> ` : ''}${richText(d.text)}${d.discardText ? `<span class="dis">${kwSpan('（棄置時）')}${richText(d.discardText)}</span>` : ''}</div></div></div>`;
   }).join('');
   const total = c.deck.reduce((s, [, n]) => s + n, 0);
   return `<div style="--theme:${themeOf(id)}">

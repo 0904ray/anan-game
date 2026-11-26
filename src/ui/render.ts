@@ -69,7 +69,7 @@ export function badges(g: Game, u: Unit): string {
     if (u.noWound) b.push(`<span class="badge buff">不負傷</span>`);
     if (u.noTpLoss) b.push(`<span class="badge buff">TP鎖定</span>`);
     if (u.halfTpNext) b.push(`<span class="badge crit">半回TP</span>`);
-    // 掛在單位身上的共用狀態（例如[墬淵]）：角色檔 registerStatus 之後就會自動顯示
+    // 掛在單位身上的共用狀態（例如[墜淵]）：角色檔 registerStatus 之後就會自動顯示
     for (const s of Object.values(STATUS_DEFS)) if ((u.counters[s.id] ?? 0) > 0) b.push(`<span class="badge crit">${esc(s.name)}</span>`);
   }
   return b.join('');
@@ -149,8 +149,8 @@ export function keywordsIn(text: string): string[] {
 }
 
 /** 卡牌文字長度分級：字越多字級越小，確保整段放得進文字框 */
-function textSize(d: { text: string; discardText?: string }): string {
-  const n = d.text.length + (d.discardText?.length ?? 0);
+function textSize(d: { text: string; discardText?: string; drawText?: string }): string {
+  const n = d.text.length + (d.discardText?.length ?? 0) + (d.drawText?.length ?? 0);
   return n > 70 ? 'xlong' : n > 42 ? 'long' : '';
 }
 
@@ -165,7 +165,7 @@ export function cardInner(defId: string, cost?: number): string {
     <div class="cost ${c < d.cost ? 'cheap' : ''}">${c}</div>
     <div class="art" style="--hue:${hue(defId)}"><span class="glyph">${esc(d.name[0])}</span><img src="${ASSET.card(defId)}"></div>
     <div class="cname">${esc(d.name)}</div>
-    <div class="ctext ${textSize(d)}">${richText(d.text)}${d.discardText ? `<span class="dis"> ${kwSpan('(棄置時)')} ${richText(d.discardText)}</span>` : ''}</div>
+    <div class="ctext ${textSize(d)}">${d.drawText ? `<span class="drw">${kwSpan('(抽出時)')} ${richText(d.drawText)}</span> ` : ''}${richText(d.text)}${d.discardText ? `<span class="dis"> ${kwSpan('(棄置時)')} ${richText(d.discardText)}</span>` : ''}</div>
   </div>`;
 }
 

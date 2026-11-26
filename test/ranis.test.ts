@@ -6,7 +6,7 @@ const newGame = (seed = 1) => make(TEAM, seed);
 
 type G = ReturnType<typeof newGame>;
 
-/** 給敵方單位掛上[墬淵]（測試用：直接設狀態，不走能力 3） */
+/** 給敵方單位掛上[墜淵]（測試用：直接設狀態，不走能力 3） */
 function abyss(e: { counters: Record<string, number>; tpMaxDown: number }) {
   e.counters.abyss = 1;
   e.tpMaxDown = 1;
@@ -26,7 +26,7 @@ describe('拉尼斯', () => {
     expect(r.name).toBe('拉尼斯');
   });
 
-  it('能力 3：敵方進入[重創]時給予永久[墬淵]，最大 TP -1（不可疊加）', () => {
+  it('能力 3：敵方進入[重創]時給予永久[墜淵]，最大 TP -1（不可疊加）', () => {
     const g = newGame();
     const e = g.unit('p1u0');
     g.loseTp(e, 8);
@@ -41,16 +41,16 @@ describe('拉尼斯', () => {
     expect(e.tpMaxDown).toBe(1);
   });
 
-  it('能力 2：只能指定[墬淵]單位，且不受 SP 限制', () => {
+  it('能力 2：只能指定[墜淵]單位，且不受 SP 限制', () => {
     const g = newGame();
     const r = g.unit('p0u0');
     const e0 = g.unit('p1u0');
     const e1 = g.unit('p1u1');
     r.ap = 8;
-    // 敵方沒有[墬淵]：不能主動攻擊
+    // 敵方沒有[墜淵]：不能主動攻擊
     expect(g.apply(0, { type: 'attack', unitId: r.id }).ok).toBe(false);
 
-    // 讓 SP 較低的 e1 帶[墬淵]：SP 規則會擋住，但拉尼斯不受限制
+    // 讓 SP 較低的 e1 帶[墜淵]：SP 規則會擋住，但拉尼斯不受限制
     e0.spBonus = 2;
     abyss(e1);
     const hp0 = e1.hp;
@@ -169,7 +169,7 @@ describe('拉尼斯', () => {
     expect(e1.hp).toBe(45 - 3);
   });
 
-  it('瀆神海域：敵方[墬淵]單位 ≥ 2 時自身[洗牌]（並觸發掃場）', () => {
+  it('瀆神海域：敵方[墜淵]單位 ≥ 2 時自身[洗牌]（並觸發掃場）', () => {
     const g = newGame();
     const r = g.unit('p0u0');
     abyss(g.unit('p1u0'));

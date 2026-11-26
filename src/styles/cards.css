@@ -14,6 +14,7 @@
 /* 卡圖縮小、文字框加大：字級依字數分三級（render.ts 的 textSize） */
 .card .ctext { position: absolute; left: 8px; right: 8px; top: 154px; bottom: 8px; padding: 6px 8px; font-size: 19px; line-height: 1.36; color: #e2d6c0; overflow: hidden; }
 .card .ctext .dis { color: #b9a4ff; }
+.card .ctext .drw, .showcard .ctext .drw, .sel-detail .drw { color: #8fd8d2; }
 .card.playable { border-color: #ffcf5a; box-shadow: 0 10px 22px rgba(0, 0, 0, .6), 0 0 16px rgba(255, 207, 90, .6); cursor: pointer; }
 .card:hover, .card.picked { transform: translateX(var(--x)) translateY(-90px) rotate(0deg) scale(1.15); z-index: 50 !important; box-shadow: 0 24px 40px rgba(0, 0, 0, .7); }
 .card.selectable { border-color: #7ad7ff; cursor: pointer; }

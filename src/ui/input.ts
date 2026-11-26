@@ -1,5 +1,5 @@
 // 輸入：點擊、拖曳、滑鼠移動，以及建立對戰
-import { randomTeam, type GameState, type PlayerIdx, type Action, type Team } from '../engine';
+import { randomTeam, isValidTeam, type GameState, type PlayerIdx, type Action, type Team } from '../engine';
 import { ALLOW_SAME_CHAR_IN_TEAM, DEFAULT_TEAMS } from '../config';
 import { LocalSession, HostSession, GuestSession, randomRoomCode, type SessionEvents } from '../net/session';
 import { stage, toast } from './dom';
@@ -307,7 +307,16 @@ stage.addEventListener('mousemove', e => {
   el.style.setProperty('--sy', `${py * 100}%`);
 });
 
-/** 直接開始本機對戰（測試用網址 ?autostart=bot / hotseat） */
+/**
+ * 直接開始本機對戰（測試用網址 ?autostart=bot / hotseat）。
+ * 想指定隊伍就加 &teams=ranis,savanna;saviel,granny（我方;對方，角色 id 用逗號分隔），沒寫或不合法就用 config 的 DEFAULT_TEAMS。
+ */
 export function startLocal(mode: 'bot' | 'hotseat') {
-  setSession(new LocalSession(mode, events, [myName, mode === 'bot' ? '電腦' : '玩家二'], DEFAULT_TEAMS));
+  setSession(new LocalSession(mode, events, [myName, mode === 'bot' ? '電腦' : '玩家二'], urlTeams() ?? DEFAULT_TEAMS));
+}
+function urlTeams(): [Team, Team] | null {
+  const raw = new URLSearchParams(location.search).get('teams');
+  const ts = raw?.split(';').map(t => t.split(',').map(x => x.trim()) as Team);
+  if (!ts || ts.length !== 2 || !ts.every(t => t.length === 2 && isValidTeam(t, ALLOW_SAME_CHAR_IN_TEAM))) return null;
+  return [ts[0], ts[1]];
 }
