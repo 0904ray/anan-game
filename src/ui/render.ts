@@ -1,5 +1,5 @@
 // 對戰畫面：把遊戲狀態畫成 HTML（不處理輸入、不播動畫）
-import { Game, CARD_DEFS, CHAR_DEFS, legalActions, findKeyword, keywordNames, type Action, type GameState, type PlayerIdx, type Unit, type CardInst, type Prompt, type UnitSnap } from '../engine';
+import { Game, CARD_DEFS, CHAR_DEFS, STATUS_DEFS, legalActions, findKeyword, keywordNames, type Action, type GameState, type PlayerIdx, type Unit, type CardInst, type Prompt, type UnitSnap } from '../engine';
 import { ASSET, esc, hue, stage } from './dom';
 import { view, me, ui, lastPlayed, hoverDef, rel, liveGame } from './state';
 
@@ -20,7 +20,7 @@ export function mergeSnap(u: Unit, snaps: UnitSnap[]): Unit {
   const dummy = (n: number) => Array.from({ length: Math.max(0, n) }, (_, i) => ({ uid: 'x' + i, defId: 'hidden' }));
   return {
     ...u, hp: sn.hp, tp: sn.tp, ap: sn.ap, tHp: sn.tHp, life: sn.life, critical: sn.critical, spBonus: sn.spBonus,
-    dmgReduce: sn.dmgReduce, noWound: sn.noWound, noTpLoss: sn.noTpLoss, halfTpNext: sn.halfTpNext,
+    dmgReduce: sn.dmgReduce, noWound: sn.noWound, noTpLoss: sn.noTpLoss, halfTpNext: sn.halfTpNext, tpMaxDown: sn.tpMaxDown,
     counters: sn.counters, under: dummy(sn.under), deck: dummy(sn.deck),
     discard: sn.discard ? [...dummy(sn.discard - 1), { uid: 'top', defId: sn.discardTop! }] : [],
     hand: u.owner === me ? u.hand : dummy(sn.hand),
@@ -69,6 +69,8 @@ export function badges(g: Game, u: Unit): string {
     if (u.noWound) b.push(`<span class="badge buff">不負傷</span>`);
     if (u.noTpLoss) b.push(`<span class="badge buff">TP鎖定</span>`);
     if (u.halfTpNext) b.push(`<span class="badge crit">半回TP</span>`);
+    // 掛在單位身上的共用狀態（例如[墬淵]）：角色檔 registerStatus 之後就會自動顯示
+    for (const s of Object.values(STATUS_DEFS)) if ((u.counters[s.id] ?? 0) > 0) b.push(`<span class="badge crit">${esc(s.name)}</span>`);
   }
   return b.join('');
 }
@@ -77,8 +79,9 @@ export function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: s
   const c = CHAR_DEFS[u.charId];
   const targetable = targetIds.includes(u.id);
   const cls = ['unit', side, 's' + u.slot, view && view.active !== u.owner ? 'off-turn' : '', u.life !== 'alive' ? u.life : '', targetable ? 'targetable' : '', targetable && u.owner === me ? 'ally' : ''].join(' ');
-  const half = Math.floor(u.tpMax / 2);
-  const tpPips = Array.from({ length: u.tpMax }, (_, i) => `<div class="pip tp ${i < u.tp ? 'on' : ''} ${u.tp <= half && u.life === 'alive' ? 'low' : ''} ${i === half - 1 ? 'half' : ''}"></div>`).join('');
+  const tpMax = g.effTpMax(u);
+  const half = Math.floor(tpMax / 2);
+  const tpPips = Array.from({ length: tpMax }, (_, i) => `<div class="pip tp ${i < u.tp ? 'on' : ''} ${u.tp <= half && u.life === 'alive' ? 'low' : ''} ${i === half - 1 ? 'half' : ''}"></div>`).join('');
   const apPips = Array.from({ length: u.apMax }, (_, i) => `<div class="pip ap ${i < u.ap ? 'on' : ''}"></div>`).join('');
   const counters = (c.counters ?? []).filter(ct => !ct.hidden).map(ct => `<span>${ct.name} <b class="gold">${u.counters[ct.id] ?? 0}</b></span>`).join('');
   const under = c.underName ? `<span class="underchip" data-under="${u.id}">${c.underName} <b>${u.under.length}</b> ▸</span>` : '';
@@ -105,7 +108,7 @@ export function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: s
     <div class="stats">
       <div class="hpbar"><div class="fill" style="width:${hpPct}%"></div><span>HP ${u.hp} / ${u.maxHp}${u.tHp ? ` (+${u.tHp})` : ''}</span></div>
       <div class="row"><label>TP</label><div class="pips">${tpPips}</div><label class="ap">AP</label><div class="pips">${apPips}</div></div>
-      <div class="chips"><span>AT <b>${g.effAt(u)}</b>・SP <b>${g.effSp(u)}</b></span>${counters}${under}${side === 'theirs' ? `<span>手牌 <b>${u.hand.length}</b></span>` : ''}</div>
+      <div class="chips"><span>AT <b>${g.effAt(u)}</b>・SP <b>${g.effSp(u)}</b></span>${counters}${under}${u.removed.length ? `<span>移除 <b>${u.removed.length}</b></span>` : ''}${side === 'theirs' ? `<span>手牌 <b>${u.hand.length}</b></span>` : ''}</div>
       ${actions ? `<div class="actions">${actions}</div>` : ''}
     </div>
   </div>`;

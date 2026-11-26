@@ -14,6 +14,10 @@ export interface CardDef {
   costFor?(g: Game, u: Unit): number;
   discardText?: string;  // (棄置時) 效果說明
   play(g: Game, u: Unit): Eff;
+  /** 抽到手上時（例如「抽出此牌時」的效果）；不是 generator，不能要求玩家選擇 */
+  onDrawCard?(g: Game, u: Unit, card: CardInst): void;
+  /** 使用後移出牌局：不進棄牌區，也不會再被洗回牌組 */
+  removeAfterPlay?: boolean;
   onDiscard?(g: Game, u: Unit, card: CardInst): Eff;
 }
 
@@ -72,6 +76,14 @@ export interface CharDef {
     onAttackHit?(g: Game, u: Unit, t: Unit, dmg: number): void;
     /** 使用下方的牌之後 */
     afterPlayUnder?(g: Game, u: Unit): void;
+    /** 我方（任一單位）[洗牌]之後；u = 擁有此能力的單位，shuffled = 洗牌的那個單位 */
+    onAllyShuffle?(g: Game, u: Unit, shuffled: Unit): void;
+    /** 任一單位進入[重創]之後；u = 擁有此能力的單位，target = 進入[重創]的單位 */
+    onUnitCritical?(g: Game, u: Unit, target: Unit): void;
+    /** 自己的回合結束時（切換到下一位玩家之前），可以回傳 Eff 讓玩家做選擇 */
+    onOwnTurnEnd?(g: Game, u: Unit): Eff | void;
+    /** 這個角色能指定的敵方單位（沒寫就是 SP 限制）；主動攻擊、卡牌指定敵方都用這個 */
+    enemyTargets?(g: Game, u: Unit): Unit[];
   };
 }
 
@@ -91,3 +103,11 @@ export function registerChar(c: CharDef, cards: CardDef[]) {
   CHAR_DEFS[c.id] = c;
   for (const card of cards) CARD_DEFS[card.id] = card;
 }
+
+/**
+ * 掛在單位 counters 上的共用狀態（例如[墬淵]）：畫面會自動顯示成徽章，
+ * 不需要在畫面寫任何角色專屬的判斷。
+ */
+export interface StatusDef { id: string; name: string }
+export const STATUS_DEFS: Record<string, StatusDef> = {};
+export function registerStatus(s: StatusDef) { STATUS_DEFS[s.id] = s; }
