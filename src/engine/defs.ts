@@ -33,6 +33,8 @@ export interface CharDef {
   lore: string;       // 記事
   /** 做到一半、還不想出現在選角畫面的角色設 true */
   hidden?: boolean;
+  /** 角色主題色（CSS 顏色）：卡面細框、名稱條底線、牌堆外框。沒寫用金色 */
+  theme?: string;
   hp: number;
   ap: number;
   tp: number;

@@ -111,15 +111,29 @@ export function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: s
   </div>`;
 }
 
+/** 角色主題色 */
+export const themeOf = (charId: string) => CHAR_DEFS[charId]?.theme ?? '#c8963e';
+
+/**
+ * 卡面：最底層是「卡牌原本所屬角色」的專屬底框圖，上面由遊戲畫卡圖、名稱條、文字框。
+ * 文字框是深色半透明底，底框圖再花也不會擋到字。
+ */
 export function cardInner(defId: string, cost?: number): string {
   const d = CARD_DEFS[defId];
   const c = cost ?? d.cost;
   const long = d.text.length + (d.discardText?.length ?? 0) > 46 ? 'long' : '';
-  return `
+  return `<div class="face" style="--theme:${themeOf(d.charId)}">
+    <img class="frame" src="${ASSET.frame(d.charId)}">
     <div class="cost ${c < d.cost ? 'cheap' : ''}">${c}</div>
     <div class="art" style="--hue:${hue(defId)}"><span class="glyph">${esc(d.name[0])}</span><img src="${ASSET.card(defId)}"></div>
     <div class="cname">${esc(d.name)}</div>
-    <div class="ctext ${long}">${esc(d.text)}${d.discardText ? `<span class="dis"> (棄置時) ${esc(d.discardText)}</span>` : ''}</div>`;
+    <div class="ctext ${long}">${esc(d.text)}${d.discardText ? `<span class="dis"> (棄置時) ${esc(d.discardText)}</span>` : ''}</div>
+  </div>`;
+}
+
+/** 卡背：角色專屬卡背 → 通用卡背 → 佔位花紋（圖片缺了就自動露出下一層） */
+export function backHtml(charId: string): string {
+  return `<div class="back" style="--theme:${themeOf(charId)}"><img src="${ASSET.back}"><img src="${ASSET.backOf(charId)}"></div>`;
 }
 
 /** 我方牌堆：牌組在上、棄牌區在下 */
@@ -130,7 +144,7 @@ export function pilesHtml(u: Unit): string {
     ? `<div class="pile discard" data-pile="discard" data-pile-unit="${u.id}"><div class="mini-art" style="--hue:${hue(top.defId)}">${esc(CARD_DEFS[top.defId].name[0])}<img src="${ASSET.card(top.defId)}"></div><div class="mini-name">${esc(CARD_DEFS[top.defId].name)}</div><div class="count">棄牌 <b>${u.discard.length}</b></div></div>`
     : `<div class="pile discard empty" data-pile="discard" data-pile-unit="${u.id}"><div class="count">棄牌 <b>0</b></div></div>`;
   return `<div class="piles s${u.slot}" data-piles="${u.id}">
-    <div class="pile deck ${deckCls}" data-pile="deck" data-pile-unit="${u.id}">${u.deck.length ? `<img src="${ASSET.back}">` : ''}<div class="count">牌組 <b>${u.deck.length}</b></div></div>
+    <div class="pile deck ${deckCls}" style="--theme:${themeOf(u.charId)}" data-pile="deck" data-pile-unit="${u.id}">${u.deck.length ? backHtml(u.charId) : ''}<div class="count">牌組 <b>${u.deck.length}</b></div></div>
     ${dis}
   </div>`;
 }
@@ -139,7 +153,7 @@ export function pilesHtml(u: Unit): string {
 export function miniPilesHtml(u: Unit): string {
   const top = u.discard[u.discard.length - 1];
   return `<div class="minipiles s${u.slot}" data-piles="${u.id}">
-    <div class="mp" data-pile="deck" data-pile-unit="${u.id}"><div></div>牌組 ${u.deck.length}</div>
+    <div class="mp" data-pile="deck" data-pile-unit="${u.id}"><div style="--theme:${themeOf(u.charId)}">${u.deck.length ? backHtml(u.charId) : ''}</div>牌組 ${u.deck.length}</div>
     <div class="mp" data-pile="discard" data-pile-unit="${u.id}"><div class="dis ${top ? '' : 'empty'}" style="--hue:${top ? hue(top.defId) : 0}"></div>棄牌 ${u.discard.length}</div>
   </div>`;
 }

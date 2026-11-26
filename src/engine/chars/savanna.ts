@@ -145,6 +145,7 @@ const savanna: CharDef = {
   id: 'savanna',
   name: '薩凡娜',
   title: '棄牌、輔助、小破、補牌',
+  theme: '#e0a93e',
   lore: '本為火神家族的旁系血脈，卻因具備強大的經商能力和判斷力，為家族帶來極大的利益，而鞏固了自己的地位。本身並沒有過人的戰鬥能力，但以她的財富和人脈，跟她合作，絕對不會讓你吃虧。',
   hp: 45, ap: 7, tp: 6, at: 1, atkCost: 1, sp: 0,
   counters: [{ id: W, name: '財富' }],

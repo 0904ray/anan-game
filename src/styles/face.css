@@ -1,0 +1,26 @@
+/* ===================== 卡面與卡背（各角色專屬圖，統一規格） ===================== */
+/*
+  卡面由下到上分層：角色底框圖（assets/frames/<角色>.png）→ 卡圖 → 名稱條 → 文字框 → 費用。
+  名稱條、文字框都是深色半透明底，底框圖只會從外圈和區塊之間露出來，所以底框畫得再花也不影響閱讀。
+  卡背：角色專屬（assets/backs/<角色>.png）→ 通用卡背 → 佔位花紋，缺圖時自動露出下一層。
+  圖片一律用 object-fit: fill 撐滿（2:3 的圖放進 5:7 的卡只會輕微拉伸，外框不會被裁掉）。
+*/
+.face { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; background: radial-gradient(ellipse at 50% 40%, #2a1f15, #120c08); }
+.face .frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
+.face::after { content: ''; position: absolute; inset: 3px; border: 1.5px solid var(--theme); border-radius: 10px; opacity: .8; pointer-events: none; }
+.face .art { box-shadow: 0 0 0 2px var(--theme), 0 4px 10px rgba(0, 0, 0, .55); }
+.face .cname { background: rgba(10, 7, 5, .9); border-top: 2px solid var(--theme); border-bottom: 2px solid var(--theme); text-shadow: 0 2px 3px #000; }
+.face .ctext { background: rgba(14, 10, 8, .9); border-radius: 8px; box-sizing: border-box; }
+
+/* 手牌尺寸 230×322 */
+.card .face .cname { top: 160px; height: 36px; line-height: 32px; box-sizing: border-box; }
+.card .face .ctext { left: 8px; right: 8px; top: 202px; bottom: 8px; padding: 6px 8px; }
+/* 展示區小卡 156×218 */
+.showcard .face .cname { top: 108px; height: 28px; line-height: 24px; box-sizing: border-box; }
+.showcard .face .ctext { left: 5px; right: 5px; top: 138px; bottom: 5px; padding: 4px 6px; }
+
+/* 卡背 */
+.back { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; background: repeating-linear-gradient(45deg, #3b2412 0 8px, #2b190b 8px 16px); }
+.back img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
+.back::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 2px var(--theme); pointer-events: none; }
+.pile.deck, .minipiles .mp > div:not(.dis) { border-color: var(--theme, #8b6a3a); }

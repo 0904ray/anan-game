@@ -1,7 +1,7 @@
 import { CARD_DEFS, CHAR_DEFS, type GameState, type PlayerIdx, type UnitSnap, type FxEvent } from '../engine';
-import { ASSET, stage } from './dom';
+import { stage } from './dom';
 import { view, me, lastFxSeq, setView, setLastFxSeq, setLastPlayed, rel, liveGame } from './state';
-import { renderGame, mergeSnap, unitHtml, pilesHtml, miniPilesHtml, bandHtml, cardInner } from './render';
+import { renderGame, mergeSnap, unitHtml, pilesHtml, miniPilesHtml, bandHtml, cardInner, backHtml } from './render';
 
 // =====================================================================
 // 動畫佇列：每次收到新畫面，照遊戲事件的順序一個一個播
@@ -126,10 +126,13 @@ const handSpot = (id: string) => {
 
 // ---------- 飛行的牌 ----------
 const CW = 230, CH = 322;
-function makeFly(layer: HTMLElement, defId: string | null, r: Rect): HTMLElement {
+/** 卡背要用哪個角色的：看這張牌從哪個角色的牌堆來 */
+const charOf = (unitId: string) => liveGame().unit(unitId).charId;
+
+function makeFly(layer: HTMLElement, defId: string | null, r: Rect, backChar?: string): HTMLElement {
   const el = document.createElement('div');
   el.className = 'fly';
-  el.innerHTML = defId && CARD_DEFS[defId] ? `<div class="card static">${cardInner(defId)}</div>` : `<div class="flyback"><img src="${ASSET.back}"></div>`;
+  el.innerHTML = defId && CARD_DEFS[defId] ? `<div class="card static">${cardInner(defId)}</div>` : `<div class="flyback">${backHtml(backChar ?? '')}</div>`;
   el.style.transform = `translate(${r.x}px, ${r.y}px) scale(${r.w / CW})`;
   layer.appendChild(el);
   return el;
@@ -237,14 +240,14 @@ async function playEvent(e: FxEvent, layer: HTMLElement, ghosts: Map<string, HTM
         const to = rectOf(target) ?? handSpot(e.unitId);
         const defId = view!.players[me].units.flatMap(u => u.hand).find(c => c.uid === e.uid)?.defId ?? null;
         if (!from || !to) { target?.classList.remove('pending'); return; }
-        const fl = makeFly(layer, defId, from);
+        const fl = makeFly(layer, defId, from, charOf(e.unitId));
         await flyTo(fl, from, to, 300);
         if (target) { target.classList.remove('pending'); fl.remove(); }
         else ghosts.set(e.uid, fl); // 抽到又馬上棄掉的牌：留著等下一個事件
       } else {
         const to = portraitRect(e.unitId);
         if (!from || !to) return;
-        const fl = makeFly(layer, null, from);
+        const fl = makeFly(layer, null, from, charOf(e.unitId));
         await flyTo(fl, from, { x: to.x + 20, y: to.y + 10, w: 90, h: 126 }, 260, { fade: true });
         fl.remove();
       }
@@ -253,7 +256,7 @@ async function playEvent(e: FxEvent, layer: HTMLElement, ghosts: Map<string, HTM
     case 'reshuffle': {
       const from = discardRect(e.unitId), to = deckRect(e.unitId);
       if (from && to) {
-        const flies = [0, 1, 2].map(() => makeFly(layer, null, from));
+        const flies = [0, 1, 2].map(() => makeFly(layer, null, from, charOf(e.unitId)));
         await Promise.all(flies.map((f, i) => sleep(i * 70).then(() => flyTo(f, from, to, 320))));
         flies.forEach(f => f.remove());
       }
@@ -318,7 +321,7 @@ async function playEvent(e: FxEvent, layer: HTMLElement, ghosts: Map<string, HTM
     case 'toDiscard': {
       const from = underRect(e.unitId), to = discardRect(e.unitId);
       if (from && to) {
-        const flies = Array.from({ length: Math.min(e.n, 5) }, () => makeFly(layer, null, { ...from, w: 60, h: 84 }));
+        const flies = Array.from({ length: Math.min(e.n, 5) }, () => makeFly(layer, null, { ...from, w: 60, h: 84 }, charOf(e.unitId)));
         await Promise.all(flies.map((f, i) => sleep(i * 60).then(() => flyTo(f, { ...from, w: 60, h: 84 }, to, 320))));
         flies.forEach(f => f.remove());
       }

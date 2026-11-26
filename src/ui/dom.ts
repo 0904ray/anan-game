@@ -4,7 +4,12 @@ export const ASSET = {
   card: (id: string) => `assets/cards/${id}.png`,
   table: 'assets/bg/table.png',
   lobby: 'assets/bg/lobby.png',
+  /** 通用卡背（角色沒有專屬卡背時使用） */
   back: 'assets/ui/card-back.png',
+  /** 角色專屬卡面底框：該角色所有卡牌共用 */
+  frame: (charId: string) => `assets/frames/${charId}.png`,
+  /** 角色專屬卡背：該角色的牌組、對手手牌、抽牌動畫 */
+  backOf: (charId: string) => `assets/backs/${charId}.png`,
 };
 
 export const stage = document.getElementById('stage')!;
