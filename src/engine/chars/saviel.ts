@@ -82,7 +82,7 @@ function boostNext(g: Game, u: Unit, why: string) {
 const cards: CardDef[] = [
   {
     id: 'svi_instant', charId: 'saviel', name: '瞬焰', cost: 1,
-    text: '+1 [焰能]，抽 1 張牌。[連擊 1、2] 下一次攻擊 AT +1（不可疊加）。',
+    text: '+1 [焰能]，抽 1 張牌。當[連擊 1、2] 下一次攻擊 AT +1（不可疊加）。',
     *play(g, u) {
       gainFlame(g, u, 1);
       g.draw(u, 1);
@@ -92,7 +92,7 @@ const cards: CardDef[] = [
   },
   {
     id: 'svi_draw', charId: 'saviel', name: '速拔', cost: 1,
-    text: '打擊 1 名單位。[連擊 1] 再打擊 1 名單位，並使該單位下回合 -1 AT。',
+    text: '打擊 1 名單位。當[連擊 1] 再打擊 1 名單位，並使該單位下回合 -1 AT。',
     *play(g, u) {
       const t = yield* g.chooseEnemy(u, '速拔：選擇打擊目標');
       if (!t) return;
@@ -109,7 +109,7 @@ const cards: CardDef[] = [
   },
   {
     id: 'svi_load', charId: 'saviel', name: '裝填', cost: 2,
-    text: '+2 [焰能]，抽 2 張牌。[連擊 0] 再 +1 [焰能]。',
+    text: '+2 [焰能]，抽 2 張牌。當[連擊 0] 再 +1 [焰能]。',
     *play(g, u) {
       gainFlame(g, u, 2);
       g.draw(u, 2);
@@ -121,7 +121,7 @@ const cards: CardDef[] = [
   },
   {
     id: 'svi_wanted', charId: 'saviel', name: '火神的通緝令', cost: 3,
-    text: '指定 1 名敵方單位，本回合其受到[直擊]時額外承受 1 點[直傷]。[連擊 0] +1 AP。',
+    text: '指定 1 名敵方單位，本回合其受到[直擊]時額外承受 1 點[直傷]。當[連擊 0] +1 AP。',
     *play(g, u) {
       const t = yield* g.chooseUnit(u.owner, '火神的通緝令：指定 1 名敵方單位', g.enemiesOf(u.owner));
       schedule(g, u);
@@ -184,7 +184,7 @@ const saviel: CharDef = {
     { id: 'p1', active: false, name: '焰之繼承', text: '薩維爾的[打擊]一律視為[直擊]（造成傷害，但不會減少對方 TP）。' },
     { id: 'p2', active: false, name: '焰能', text: '[主動攻擊]不花 AP，改為消耗 1 [焰能]；[焰能] 每 1 層 = 本回合可主動攻擊 1 次（上限 6 層，回合結束清空）。' },
     { id: 'p3', active: false, name: '先鋒', text: '每回合首次[主動攻擊]時，自身抽 1 張牌。' },
-    { id: 'p4', active: false, name: '連擊', text: '[連擊 3、4、5] 下一次攻擊 AT +1（不可疊加）。[連擊 6] 本次傷害 ×2。' },
+    { id: 'p4', active: false, name: '連擊', text: '當[連擊 3、4、5] 下一次攻擊 AT +1（不可疊加）。當[連擊 6] 本次傷害 ×2。' },
   ],
   deck: [
     ['svi_instant', 6], ['svi_draw', 3], ['svi_load', 3],
