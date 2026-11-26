@@ -54,7 +54,7 @@ describe('薩凡娜', () => {
     expect(a1.hand.length).toBe(mate + 2);
   });
 
-  it('武裝千金：敵方全體 -3 TP；收買4 讓重創單位下回合只回一半 TP', () => {
+  it('武裝千金：我方全體[洗牌]（各抽 1）、敵方全體 -3 TP；收買4 讓重創單位下回合只回一半 TP', () => {
     const g = newGame();
     const a0 = g.state.players[0].units[0];
     const [b0, b1] = g.state.players[1].units;
@@ -62,7 +62,14 @@ describe('薩凡娜', () => {
     a0.counters.wealth = 4;
     b0.tp = 3;
     const h = give(g, a0.id, 'sav_heiress');
+    const a1 = g.state.players[0].units[1];
+    const hand0 = a0.hand.length, hand1 = a1.hand.length;
+    a1.discard.push(a1.deck.pop()!);
     g.apply(0, { type: 'play', unitId: a0.id, cardUid: h });
+    // [洗牌]：棄牌區洗回牌組，再各抽 1 張
+    expect(a1.discard.length).toBe(0);
+    expect(a0.hand.length).toBe(hand0 - 1 + 1);
+    expect(a1.hand.length).toBe(hand1 + 1);
     expect(b0.tp).toBe(0);
     expect(b0.critical).toBe(true);
     expect(b1.tp).toBe(3);

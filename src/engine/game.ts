@@ -428,7 +428,15 @@ export class Game {
     }
   }
 
-  /** 把棄牌區洗回牌組 */
+  /** [洗牌]：能力、卡牌效果造成的洗牌＝棄牌區洗回牌組，再抽 1 張（牌組抽完自動洗回不算） */
+  abilityShuffle(u: Unit) {
+    if (u.life === 'dead') return;
+    this.reshuffle(u);
+    this.log(`${u.name} [洗牌]`, u.owner);
+    this.draw(u, 1);
+  }
+
+  /** 把棄牌區洗回牌組（單純洗回，不抽牌） */
   reshuffle(u: Unit) {
     const had = u.discard.length;
     u.deck.push(...u.discard);

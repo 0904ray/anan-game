@@ -1,7 +1,7 @@
 // 長按卡牌放大：按住任何帶 data-zoom 的卡面（手牌、展示區、牌堆清單、選角牌組…）約半秒，
 // 整張卡放大到佔滿畫面大部分；點畫面任何地方關掉。桌機也可以按滑鼠右鍵。
-// 左側列出這張卡用到的詞條說明；指著（桌機）或點（手機）卡上有底線的詞，對應的說明會亮起來。
-// 說明裡的詞條也能再點，沒列出的會加到清單最後。
+// 指著（桌機）或點（手機）卡上有底線的詞，左側才顯示那個詞的說明（一次一個）。
+// 說明裡的詞條也能再點，換成那個詞的說明。
 // 放大層掛在 <body> 上（不在 #stage 裡），所以對手出牌、畫面重畫時不會被洗掉。
 import { CARD_DEFS, findKeyword } from '../engine';
 import { cardInner, richText, keywordsIn, kwSpan, themeOf } from './render';
@@ -35,15 +35,18 @@ export function openZoom(defId: string, cost?: number) {
   const k = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
   el.style.setProperty('--k', String(k));
   const d = CARD_DEFS[defId];
-  const words = keywordsIn(d.text);
-  if (d.discardText) for (const w of ['棄置時', ...keywordsIn(d.discardText)]) if (!words.includes(w)) words.push(w);
-  el.innerHTML = `${words.length ? `<div class="zoom-info" style="--theme:${themeOf(d.charId)}"><div class="zi-head">詞條說明</div><div class="zi-list">${words.map(entryHtml).join('')}</div><div class="zi-hint">指著或點卡上有底線的詞，對應的說明會亮起來</div></div>` : ''}
+  const hasKw = keywordsIn(d.text).length > 0 || !!d.discardText;
+  el.innerHTML = `${hasKw ? `<div class="zoom-info empty" style="--theme:${themeOf(d.charId)}"><div class="zi-hint">指著或點卡上有底線的詞<br>這裡會顯示說明</div></div>` : ''}
     <div class="zoom-cardbox"><div class="card zoomcard">${cardInner(defId, cost)}</div></div>
     <div class="zoom-hint">點空白處關閉</div>`;
   // 只有「在放大層上按下去」的那一下才算關閉，長按放開時手機補發的 click 不算
   let armed = false;
   el.addEventListener('pointerdown', e => { armed = true; e.stopPropagation(); });
-  el.addEventListener('pointerover', e => { const w = kwOf(e); if (w && (e as PointerEvent).pointerType === 'mouse') focusWord(el, w); });
+  // 滑鼠指著卡上的詞就顯示；說明區裡的詞要點才換（不然滑鼠移過去時說明會一直跳）
+  el.addEventListener('pointerover', e => {
+    const w = kwOf(e);
+    if (w && e.pointerType === 'mouse' && (e.target as HTMLElement).closest('.zoomcard')) focusWord(el, w);
+  });
   el.addEventListener('click', e => {
     e.stopPropagation();
     const w = kwOf(e);
@@ -63,19 +66,17 @@ function entryHtml(word: string): string {
 function kwOf(e: Event): string | null {
   return ((e.target as HTMLElement | null)?.closest?.('[data-kw]') as HTMLElement | null)?.dataset.kw ?? null;
 }
-/** 亮起某個詞條的說明（清單裡沒有就加到最後），並捲到看得到的地方 */
+/** 在左側顯示某個詞條的說明（一次一個） */
 function focusWord(el: HTMLElement, word: string) {
-  const list = el.querySelector<HTMLElement>('.zi-list');
-  if (!list) return;
-  let entry = list.querySelector<HTMLElement>(`[data-kw-entry="${CSS.escape(word)}"]`);
-  if (!entry) {
-    list.insertAdjacentHTML('beforeend', entryHtml(word));
-    entry = list.querySelector<HTMLElement>(`[data-kw-entry="${CSS.escape(word)}"]`);
-    if (!entry) return;
-  }
-  list.querySelectorAll('.zi-entry.on').forEach(x => x.classList.remove('on'));
-  entry.classList.add('on');
-  entry.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  const info = el.querySelector<HTMLElement>('.zoom-info');
+  if (!info) return;
+  const html = entryHtml(word);
+  if (!html) return;
+  info.classList.remove('empty');
+  info.innerHTML = html;
+  info.scrollTop = 0;
+  el.querySelectorAll('.zoomcard .kw-def.on').forEach(x => x.classList.remove('on'));
+  el.querySelectorAll<HTMLElement>('.zoomcard [data-kw]').forEach(x => { if (x.dataset.kw === word) x.classList.add('on'); });
 }
 
 function target(e: Event): HTMLElement | null {

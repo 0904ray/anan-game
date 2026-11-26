@@ -124,11 +124,10 @@ const cards: CardDef[] = [
   },
   {
     id: 'sav_heiress', charId: 'savanna', name: '武裝千金', cost: 6,
-    text: '我方全體洗牌（棄牌區洗回牌組），使敵方全體 -3 TP。[收買4] 本回合結束時，敵方的[重創]單位下個回合只能回復 ½ 的 TP（無條件進位）。',
+    text: '我方全體[洗牌]，使敵方全體 -3 TP。[收買4] 本回合結束時，敵方的[重創]單位下個回合只能回復 ½ 的 TP（無條件進位）。',
     discardText: '+1 [財富]。',
     *play(g, u) {
-      for (const a of g.state.players[u.owner].units) if (a.life !== 'dead') g.reshuffle(a);
-      g.log('我方全體洗牌（棄牌區洗回牌組）', u.owner);
+      for (const a of g.state.players[u.owner].units) g.abilityShuffle(a);
       for (const e of g.enemiesOf(u.owner)) { g.log(`${e.name} -3 TP`, u.owner); g.loseTp(e, 3); }
       if (yield* buy(g, u, 4, '武裝千金：本回合結束時，敵方[重創]單位下回合只回復一半 TP')) {
         g.state.endOfTurn.push({ kind: 'halfTp', by: u.id });
