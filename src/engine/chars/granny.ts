@@ -135,6 +135,7 @@ const granny: CharDef = {
   id: 'granny',
   name: '葛蘭妮',
   title: '棄牌、吞牌、後期爆發',
+  theme: '#a66be0',
   lore: '古老魔族的後裔，本性不壞，但無法抗拒本能的吞噬周邊的事物。時常處於飢餓，但進食後帶來的不是飽足感，而是更加旺盛的食慾，和更為兇殘的力量。',
   hp: 45, ap: 6, tp: 5, at: 1, atkCost: 2, sp: 0,
   counters: [{ id: G, name: '暴食' }, { id: PERM, name: '永久AT', hidden: true }],

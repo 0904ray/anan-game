@@ -88,9 +88,12 @@ test/
 3. 寫 `test/<角色>.test.ts`：每個能力、每張牌至少一個測試；用 `test/helpers.ts` 的工具。
 4. 在 `test/simulation.test.ts` 加一組含新角色的隊伍跑隨機對打。
 5. 規則有不明確、自己做了決定的地方，寫進 `README.md` 的「規則實作備註」，並回報給專案擁有者確認。
-6. 在 `圖片提示詞.md` 補上角色立繪和卡圖的提示詞（完整、可以直接貼進生圖 AI，不要留空格讓人填）；檔名 `assets/chars/<角色id>.png`、`assets/cards/<卡牌id>.png`。
-7. 登記後選角畫面會**自動出現**新角色，不用改任何畫面程式。還沒做完、不想讓玩家選到的角色，在 `CharDef` 設 `hidden: true`。
-8. 想直接測新角色：改 `src/config.ts` 的 `DEFAULT_TEAMS`，然後開 `?autostart=bot`。
+6. 在 `CharDef` 設 `theme`（角色主題色，CSS 顏色字串），卡面細框、名稱條、牌堆外框會用到。
+7. 在 `圖片提示詞.md` 補上提示詞（完整、可以直接貼進生圖 AI，不要留空格讓人填），每個角色一套、規格統一：
+   - 角色立繪 `assets/chars/<角色id>.png`、每張卡圖 `assets/cards/<卡牌id>.png`
+   - 卡面底框 `assets/frames/<角色id>.png`、卡背 `assets/backs/<角色id>.png`（照「卡面與卡背」那節的格式寫）
+8. 登記後選角畫面會**自動出現**新角色，不用改任何畫面程式。還沒做完、不想讓玩家選到的角色，在 `CharDef` 設 `hidden: true`。
+9. 想直接測新角色：改 `src/config.ts` 的 `DEFAULT_TEAMS`，然後開 `?autostart=bot`。
 
 ## 畫面慣例
 
@@ -98,6 +101,7 @@ test/
 - 任何會進 `innerHTML` 的文字都要過 `esc()`，尤其是玩家名字（來自網路）。
 - 點擊用 `data-*` 屬性，由 `ui/input.ts` 統一處理；render 函式不綁事件。
 - 圖片放在 `public/assets/`；沒有圖時畫面會自動顯示佔位色塊，不要因為缺圖而報錯。
+- 卡面一律用 `render.ts` 的 `cardInner()`、卡背一律用 `backHtml()`，不要自己拼卡片 HTML。卡面文字永遠由遊戲畫在角色底框**上面**（深色半透明文字框），所以底框圖只負責外觀、不能放文字。
 - 動畫播放時 `ui/anim.ts` 的 `isBusy()` 為 true，輸入會被擋下（點擊＝加速）。
 
 ## 連線

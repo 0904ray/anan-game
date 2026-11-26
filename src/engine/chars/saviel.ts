@@ -165,6 +165,7 @@ const saviel: CharDef = {
   id: 'saviel',
   name: '薩維爾',
   title: '直擊、連擊、小破',
+  theme: '#6fb6ea',
   lore: '本該是火神的下一位繼承人，卻因魔力與眾不同，而丟失了繼承權，並被流放，在外流浪的同時，也在尋找證明自身價值的機會。具有特殊的技巧，隨著不斷的進攻，帶來更高的火力。',
   hp: 40, ap: 6, tp: 6, at: 1, atkCost: 0, sp: 0,
   counters: [

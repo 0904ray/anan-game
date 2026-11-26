@@ -68,7 +68,6 @@
 .pile.deck { border: 3px solid #8b6a3a; background: repeating-linear-gradient(45deg, #3b2412 0 8px, #2b190b 8px 16px); box-shadow: 4px 4px 0 #2b190b, 8px 8px 0 #1b0f06, 12px 12px 0 #120a04; }
 .pile.deck.thin { box-shadow: 3px 3px 0 #2b190b; }
 .pile.deck.empty { background: rgba(0, 0, 0, .3); border-style: dashed; box-shadow: none; }
-.pile.deck img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 9px; }
 .pile.discard { border: 3px solid #8a6a3c; background: #2a1f15; box-shadow: -3px 3px 0 #1b130c; }
 .pile.discard.empty { background: rgba(0, 0, 0, .3); border-style: dashed; box-shadow: none; }
 .pile .mini-art { position: absolute; left: 6px; right: 6px; top: 6px; height: 84px; border-radius: 8px; background: linear-gradient(150deg, hsl(var(--hue), 55%, 42%), hsl(var(--hue), 55%, 16%)); overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 38px; font-weight: 900; color: rgba(255, 255, 255, .25); }
