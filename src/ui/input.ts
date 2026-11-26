@@ -1,18 +1,50 @@
 // 輸入：點擊、拖曳、滑鼠移動，以及建立對戰
-import type { GameState, PlayerIdx, Action } from '../engine';
+import { randomTeam, type GameState, type PlayerIdx, type Action, type Team } from '../engine';
+import { ALLOW_SAME_CHAR_IN_TEAM, DEFAULT_TEAMS } from '../config';
 import { LocalSession, HostSession, GuestSession, randomRoomCode, type SessionEvents } from '../net/session';
 import { stage, toast } from './dom';
-import { view, me, ui, session, myName, hoverDef, setSession, setLastPlayed, setHoverDef, liveGame } from './state';
+import { view, me, ui, session, myName, hoverDef, setSession, setView, setLastPlayed, setHoverDef, liveGame } from './state';
+import { showSelect, closeSelect, isSelecting, setSelectStatus, handleSelectClick, handleSelectHover } from './select';
 import { renderGame, cardInner } from './render';
 import { renderLobby, readName } from './lobby';
 import { enqueue, isBusy, fastForward } from './anim';
 import { showCharSheet, showFullLog, showPile, showUnder, showMenu } from './popups';
 
+/** 文字訊息顯示在目前畫面合適的地方：大廳狀態列／選角狀態列／對戰中的提示 */
+function notify(t: string) {
+  if (view) toast(t);
+  else if (isSelecting()) setSelectStatus(t);
+  else { const el = stage.querySelector('.lobby .status'); if (el) el.textContent = t; }
+}
+
 export const events: SessionEvents = {
-  onState(v: GameState, m: PlayerIdx) { enqueue(v, m); },
-  onStatus(t: string) { if (!view) { const el = stage.querySelector('.lobby .status'); if (el) el.textContent = t; } else toast(t); },
-  onError(t: string) { if (!view) { const el = stage.querySelector('.lobby .status'); if (el) el.textContent = t; } else toast(t); },
+  onState(v: GameState, m: PlayerIdx) { closeSelect(); enqueue(v, m); },
+  onStatus: notify,
+  onError: notify,
+  onNeedTeam() {
+    setView(null, me);
+    setLastPlayed(null);
+    showSelect({ who: `${myName}・連線對戰`, online: true, onConfirm: team => session?.submitTeam(team) });
+  },
 };
+
+// ---------------------------------------------------------------------
+// 開始對戰：本機模式先選角再建立 Session
+// ---------------------------------------------------------------------
+function resetToSelect() { setSession(null); setView(null, me); setLastPlayed(null); }
+
+function startBot() {
+  resetToSelect();
+  showSelect({ who: `${myName} 選角`, onConfirm: team => setSession(new LocalSession('bot', events, [myName, '電腦'], [team, randomTeam(Math.random, ALLOW_SAME_CHAR_IN_TEAM)])) });
+}
+
+function startHotseat() {
+  resetToSelect();
+  showSelect({
+    who: `玩家一（${myName}）選角`,
+    onConfirm: t1 => showSelect({ who: '玩家二 選角', onConfirm: t2 => setSession(new LocalSession('hotseat', events, [myName, '玩家二'], [t1, t2] as [Team, Team])) }),
+  });
+}
 
 // =====================================================================
 // 輸入
@@ -167,20 +199,26 @@ stage.addEventListener('click', e => {
   if (act) {
     const k = act.dataset.act;
     readName();
-    if (k === 'bot') setSession(new LocalSession('bot', events, [myName, '電腦']));
-    else if (k === 'hotseat') setSession(new LocalSession('hotseat', events, [myName, '玩家二']));
+    if (k === 'bot') startBot();
+    else if (k === 'hotseat') startHotseat();
     else if (k === 'host') { const code = randomRoomCode(); renderLobby('正在建立房間…', code); setSession(new HostSession(code, myName, events)); }
     else if (k === 'join') {
       const code = (stage.querySelector('#code') as HTMLInputElement).value.trim();
       if (!/^\d{6}$/.test(code)) { events.onError('房號是 6 位數字'); return; }
       setSession(new GuestSession(code, myName, events));
     } else if (k === 'rematch') { setLastPlayed(null); session?.rematch(); }
-    else if (k === 'lobby') { setLastPlayed(null); renderLobby(); }
+    else if (k === 'reselect') {
+      if (session?.mode === 'bot') startBot();
+      else if (session?.mode === 'hotseat') startHotseat();
+      else session?.reselect();
+    }
+    else if (k === 'lobby') { closeSelect(); setLastPlayed(null); renderLobby(); }
     else if (k === 'menu') showMenu();
     else if (k === 'fulllog') showFullLog();
     else if (k === 'close-popup') stage.querySelector('.popup-bg')?.remove();
     return;
   }
+  if (handleSelectClick(t)) return;
   if (!view) return;
   const st = view;
   const myPrompt = st.prompt && st.prompt.player === me ? st.prompt : null;
@@ -243,6 +281,7 @@ stage.addEventListener('keydown', e => {
 
 // 電腦：滑鼠移到手牌上，展示區先預覽那張牌（只換展示區的小卡，不整頁重畫）
 stage.addEventListener('mouseover', e => {
+  if (isSelecting()) { handleSelectHover(e.target as HTMLElement); return; }
   if (isBusy()) return;
   const c = (e.target as HTMLElement).closest('.hand [data-preview-card]') as HTMLElement | null;
   const slot = document.getElementById('showcard');
@@ -266,5 +305,5 @@ stage.addEventListener('mousemove', e => {
 
 /** 直接開始本機對戰（測試用網址 ?autostart=bot / hotseat） */
 export function startLocal(mode: 'bot' | 'hotseat') {
-  setSession(new LocalSession(mode, events, [myName, mode === 'bot' ? '電腦' : '玩家二']));
+  setSession(new LocalSession(mode, events, [myName, mode === 'bot' ? '電腦' : '玩家二'], DEFAULT_TEAMS));
 }

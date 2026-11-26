@@ -1,6 +1,7 @@
 /* 樣式入口：依畫面區塊分檔 */
 @import './base.css';
 @import './lobby.css';
+@import './select.css';
 @import './board.css';
 @import './cards.css';
 @import './overlay.css';

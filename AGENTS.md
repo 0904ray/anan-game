@@ -36,13 +36,14 @@ config.ts 全域設定                     ──┘
 ```
 src/
   main.ts                進入點
-  config.ts              預設隊伍、PeerJS 前綴、電腦延遲、版本字樣
+  config.ts              測試用預設隊伍、同隊能否重複角色、PeerJS 前綴、電腦延遲、版本字樣
   engine/
     index.ts             對外入口（只 export 需要的東西）
     types.ts             所有資料型別（GameState 必須能 JSON 序列化）
     defs.ts              角色／卡牌定義格式、登記表、回合結束效果登記表
     game.ts              核心規則：回合、AP、TP、負傷/重創/瀕死/處決、SP、居前、救治、傷害、事件
     view.ts              viewFor：產生給某位玩家看的資料（藏手牌、藏牌組順序）
+    roster.ts            角色名單、隊伍驗證（isValidTeam）、電腦隨機組隊
     bot.ts               合法操作列表、隨機電腦
     chars/index.ts       ★ 新角色在這裡 import 登記
     chars/<角色>.ts      每個角色一個檔：能力＋牌組
@@ -54,8 +55,9 @@ src/
     anim.ts              動畫佇列：依引擎事件順序播放
     popups.ts            頁內彈出視窗
     lobby.ts             大廳
+    select.ts            選角畫面（自動列出 roster() 的所有角色）
     input.ts             所有輸入事件、建立 Session
-  styles/                依區塊分檔：base / lobby / board / cards / overlay / anim
+  styles/                依區塊分檔：base / lobby / select / board / cards / overlay / anim
 test/
   helpers.ts             newGame / answer / give / simulate
   core.test.ts           核心規則
@@ -87,7 +89,8 @@ test/
 4. 在 `test/simulation.test.ts` 加一組含新角色的隊伍跑隨機對打。
 5. 規則有不明確、自己做了決定的地方，寫進 `README.md` 的「規則實作備註」，並回報給專案擁有者確認。
 6. 在 `圖片提示詞.md` 補上角色立繪和卡圖的提示詞（完整、可以直接貼進生圖 AI，不要留空格讓人填）；檔名 `assets/chars/<角色id>.png`、`assets/cards/<卡牌id>.png`。
-7. 如果要讓新角色上場，改 `src/config.ts` 的 `DEFAULT_TEAMS`（之後會有選角畫面）。
+7. 登記後選角畫面會**自動出現**新角色，不用改任何畫面程式。還沒做完、不想讓玩家選到的角色，在 `CharDef` 設 `hidden: true`。
+8. 想直接測新角色：改 `src/config.ts` 的 `DEFAULT_TEAMS`，然後開 `?autostart=bot`。
 
 ## 畫面慣例
 
@@ -100,6 +103,8 @@ test/
 ## 連線
 
 - PeerJS 端對端：**房主的瀏覽器跑規則**（權威），客人只送 `Action`，房主用 `viewFor` 把各自能看的畫面送回去。
+- 流程：連上 → 雙方各自選角（`onNeedTeam` → `submitTeam`，看不到對方選誰）→ 兩邊都確認才開局 → 結束後可「再來一局」（同隊伍）或「重新選角」（`reselect`）。
+- 本機模式（電腦、雙人同螢幕）是畫面先選角，再用選好的隊伍建立 `LocalSession`。
 - 對方送來的任何東西都當不可信：`Game.apply` 會驗證所有操作。
 - 測試連線可以自架 PeerJS 伺服器，網址加 `?peerHost=127.0.0.1&peerPort=9000&peerPath=/`。
 
