@@ -243,5 +243,5 @@ export function gameOverHtml(st: GameState): string {
   const text = w === 'draw' ? '平手' : w === me ? '勝利' : '敗北';
   const cls = w === me ? 'win' : 'lose';
   return `<div class="gameover"><h1 class="${cls}">${text}</h1>
-    <div class="row2"><button class="btn" data-act="rematch">再來一局</button><button class="btn ghost" data-act="lobby">回到大廳</button></div></div>`;
+    <div class="row2"><button class="btn" data-act="rematch">再來一局</button><button class="btn ghost" data-act="reselect">重新選角</button><button class="btn ghost" data-act="lobby">回到大廳</button></div></div>`;
 }

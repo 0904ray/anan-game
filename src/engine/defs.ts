@@ -31,6 +31,8 @@ export interface CharDef {
   name: string;
   title: string;      // 概要
   lore: string;       // 記事
+  /** 做到一半、還不想出現在選角畫面的角色設 true */
+  hidden?: boolean;
   hp: number;
   ap: number;
   tp: number;

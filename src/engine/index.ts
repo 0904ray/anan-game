@@ -3,5 +3,6 @@ import './chars';
 export { Game, type ApplyResult } from './game';
 export { CARD_DEFS, CHAR_DEFS, type CardDef, type CharDef, type AbilityDef } from './defs';
 export { viewFor } from './view';
+export { roster, isValidTeam, randomTeam, type Team } from './roster';
 export { legalActions, randomAnswer, botStep } from './bot';
 export type * from './types';

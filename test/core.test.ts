@@ -155,3 +155,23 @@ describe('合法操作', () => {
     for (const a of legalActions(g, 0)) expect(g.checkAction(0, a)).toBeNull();
   });
 });
+
+describe('角色名單與隊伍', () => {
+  it('roster 列出所有已登記、沒隱藏的角色', async () => {
+    const { roster } = await import('../src/engine');
+    expect(roster().map(c => c.id)).toEqual(expect.arrayContaining(['savanna', 'granny']));
+  });
+  it('isValidTeam：兩隻、都存在；同隊重複看設定', async () => {
+    const { isValidTeam } = await import('../src/engine');
+    expect(isValidTeam(['savanna', 'granny'], false)).toBe(true);
+    expect(isValidTeam(['savanna', 'savanna'], false)).toBe(false);
+    expect(isValidTeam(['savanna', 'savanna'], true)).toBe(true);
+    expect(isValidTeam(['savanna'], true)).toBe(false);
+    expect(isValidTeam(['savanna', 'nobody'], true)).toBe(false);
+    expect(isValidTeam('savanna', true)).toBe(false);
+  });
+  it('randomTeam 組出合法隊伍', async () => {
+    const { randomTeam, isValidTeam } = await import('../src/engine');
+    for (let i = 0; i < 50; i++) expect(isValidTeam(randomTeam(Math.random, false), false)).toBe(true);
+  });
+});
