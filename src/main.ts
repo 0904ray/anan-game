@@ -152,7 +152,8 @@ function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: string[]
   const half = Math.floor(u.tpMax / 2);
   const tpPips = Array.from({ length: u.tpMax }, (_, i) => `<div class="pip tp ${i < u.tp ? 'on' : ''} ${u.tp <= half && u.life === 'alive' ? 'low' : ''} ${i === half - 1 ? 'half' : ''}"></div>`).join('');
   const apPips = Array.from({ length: u.apMax }, (_, i) => `<div class="pip ap ${i < u.ap ? 'on' : ''}"></div>`).join('');
-  const counters = (c.counters ?? []).map(ct => `<span>${ct.name} <b class="gold">${u.counters[ct.id] ?? 0}</b></span>`).join('');
+  const counters = (c.counters ?? []).filter(ct => !ct.hidden).map(ct => `<span>${ct.name} <b class="gold">${u.counters[ct.id] ?? 0}</b></span>`).join('');
+  const under = c.underName ? `<span class="underchip" data-under="${u.id}">${c.underName} <b>${u.under.length}</b> ▸</span>` : '';
   let actions = '';
   if (side === 'mine' && myTurn && u.life === 'alive') {
     const btn = (a: Action, label: string, extra = '') => {
@@ -176,19 +177,21 @@ function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: string[]
     <div class="stats">
       <div class="hpbar"><div class="fill" style="width:${hpPct}%"></div><span>HP ${u.hp} / ${u.maxHp}${u.tHp ? ` (+${u.tHp})` : ''}</span></div>
       <div class="row"><label>TP</label><div class="pips">${tpPips}</div><label class="ap">AP</label><div class="pips">${apPips}</div></div>
-      <div class="chips"><span>AT <b>${u.at}</b>・SP <b>${g.effSp(u)}</b></span>${counters}${side === 'theirs' ? `<span>手牌 <b>${u.hand.length}</b></span>` : ''}</div>
+      <div class="chips"><span>AT <b>${g.effAt(u)}</b>・SP <b>${g.effSp(u)}</b></span>${counters}${under}${side === 'theirs' ? `<span>手牌 <b>${u.hand.length}</b></span>` : ''}</div>
       ${actions ? `<div class="actions">${actions}</div>` : ''}
     </div>
   </div>`;
 }
 
-function cardInner(defId: string, big = false): string {
+function cardInner(defId: string, big = false, cost?: number): string {
   const d = CARD_DEFS[defId];
+  const c = cost ?? d.cost;
+  const long = d.text.length + (d.discardText?.length ?? 0) > 46 ? 'long' : '';
   return `
-    <div class="cost">${d.cost}</div>
+    <div class="cost ${c < d.cost ? 'cheap' : ''}">${c}</div>
     <div class="art" style="--hue:${hue(defId)}"><span class="glyph">${esc(d.name[0])}</span><img src="${ASSET.card(defId)}"></div>
     <div class="cname">${esc(d.name)}</div>
-    <div class="ctext">${esc(d.text)}${d.discardText ? `<span class="dis">${big ? '' : ' '}(棄置時) ${esc(d.discardText)}</span>` : ''}</div>
+    <div class="ctext ${long}">${esc(d.text)}${d.discardText ? `<span class="dis">${big ? '' : ' '}(棄置時) ${esc(d.discardText)}</span>` : ''}</div>
     <div class="owner">${esc(CHAR_DEFS[d.charId].name)}</div>`;
 }
 
@@ -229,7 +232,7 @@ function handHtml(g: Game, u: Unit, myPrompt: Prompt | null, myTurn: boolean): s
     const playable = myTurn && u.life === 'alive' && g.checkAction(me, { type: 'play', unitId: u.id, cardUid: c.uid }) === null;
     const selectable = selecting && (myPrompt as any).cardUids.includes(c.uid);
     const cls = ['card', playable ? 'playable' : '', selectable ? 'selectable' : '', ui.selected.has(c.uid) ? 'selected' : '', ui.picked?.uid === c.uid ? 'picked' : ''].join(' ');
-    html += `<div class="${cls}" data-card="${c.uid}" data-owner="${u.id}" data-preview-card="${c.defId}" style="--x:${start + i * step}px;--y:${y}px;--rot:${rot}deg;z-index:${i + 1}">${cardInner(c.defId)}</div>`;
+    html += `<div class="${cls}" data-card="${c.uid}" data-owner="${u.id}" data-preview-card="${c.defId}" style="--x:${start + i * step}px;--y:${y}px;--rot:${rot}deg;z-index:${i + 1}">${cardInner(c.defId, false, g.cardCost(u, c.defId))}</div>`;
   });
   return html + `</div>`;
 }
@@ -262,7 +265,7 @@ function bandHtml(st: GameState, g: Game, myPrompt: Prompt | null, myTurn: boole
     const c = g.unit(ui.picked.unitId).hand.find(x => x.uid === ui.picked!.uid)!;
     const d = CARD_DEFS[c.defId];
     cardDef = c.defId; cardCls = 'me';
-    label = '準備打出'; main = `${esc(g.unit(ui.picked.unitId).name)}：【${esc(d.name)}】`; sub = `花費 ${d.cost} AP`;
+    label = '準備打出'; main = `${esc(g.unit(ui.picked.unitId).name)}：【${esc(d.name)}】`; sub = `花費 ${g.cardCost(g.unit(ui.picked.unitId), c.defId)} AP`;
     btns = `<button class="btn small" data-play-picked>打出</button><button class="btn small ghost" data-cancel-pick>取消</button>`;
   } else if (lastPlayed) {
     mainCls = rel(lastPlayed.side);
@@ -346,6 +349,23 @@ function showPile(unitId: string, kind: 'deck' | 'discard') {
     : [...counts].map(([id, n]) => `<div class="item"><b>×${n}</b>${esc(CARD_DEFS[id].name)}</div>`).join('');
   popup(`<h2>${esc(u.name)} 的${kind === 'deck' ? '牌組（剩下的牌，順序隱藏）' : '棄牌區'}　${pile.length} 張</h2><div class="cardlist">${items}</div>`);
 }
+/** 壓在角色下方的牌（葛蘭妮的吞噬）：可以直接從這裡使用 */
+function showUnder(unitId: string) {
+  const g = liveGame();
+  const u = g.unit(unitId);
+  const c = CHAR_DEFS[u.charId];
+  const myTurn = view!.winner === null && !view!.prompt && view!.active === me;
+  const items = u.under.map(card => {
+    const a: Action = { type: 'playUnder', unitId: u.id, cardUid: card.uid };
+    const err = u.owner === me && myTurn ? g.checkAction(me, a) : '不是你的回合';
+    const btn = u.owner === me ? `<button class="act-btn" data-action='${esc(JSON.stringify(a))}' ${err ? `disabled title="${esc(err)}"` : ''}>使用</button>` : '';
+    return `<div class="underitem"><div class="showcard me">${cardInner(card.defId, false, g.cardCost(u, card.defId))}</div>${btn}</div>`;
+  }).join('');
+  popup(`<h2>${esc(u.name)} 的${c.underName ?? '下方'}牌堆　${u.under.length} 張（每張 AT +1）</h2>
+    <div class="underlist">${items || '<div class="item">還沒有吞噬任何牌</div>'}</div>
+    ${u.owner === me ? '<div class="hint2">使用吞噬的牌：照卡面費用付 AP，用完進棄牌區，+1 暴食</div>' : ''}`);
+}
+
 function showMenu() {
   popup(`<h2>離開這場對戰，回到大廳？</h2><div class="row2"><button class="btn" data-act="lobby">回到大廳</button></div>`);
 }
@@ -444,6 +464,8 @@ stage.addEventListener('click', e => {
   if (q('[data-answer-cards]')) { send({ type: 'answer', value: [...ui.selected] }); return; }
   if (q('[data-play-picked]') && ui.picked) { send({ type: 'play', unitId: ui.picked.unitId, cardUid: ui.picked.uid }); return; }
   if (q('[data-cancel-pick]')) { ui.picked = null; renderGame(); return; }
+  const underEl = q('[data-under]');
+  if (underEl) { showUnder(underEl.dataset.under!); return; }
   const pile = q('[data-pile]');
   if (pile) { showPile(pile.dataset.pileUnit!, pile.dataset.pile as 'deck' | 'discard'); return; }
 

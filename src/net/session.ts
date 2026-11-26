@@ -20,7 +20,7 @@ export interface Session {
   close(): void;
 }
 
-const DEFAULT_CHARS: [[string, string], [string, string]] = [['savanna', 'savanna'], ['savanna', 'savanna']];
+const DEFAULT_CHARS: [[string, string], [string, string]] = [['savanna', 'granny'], ['savanna', 'granny']];
 
 // ---------------------------------------------------------------------
 // 本機：雙人同螢幕／對戰電腦

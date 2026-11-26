@@ -242,3 +242,15 @@ img.missing { display: none !important; }
 #rotate button { font-size: 20px; padding: 10px 26px; border-radius: 10px; border: 2px solid #c8963e; background: #3a250d; color: #ffe7b2; }
 @media (orientation: portrait) and (max-width: 900px) { body:not(.rotate-ok) #rotate { display: flex; } }
 .lobby .note { font-size: 18px; color: #c9a46a; grid-column: 1 / -1; text-align: center; }
+
+/* 葛蘭妮的吞噬牌堆 */
+.underchip { cursor: pointer; background: rgba(160, 40, 90, .35) !important; border: 1px solid #c04a7a; color: #ffc7dc; }
+.underchip b { color: #fff !important; }
+.underlist { display: flex; flex-wrap: wrap; gap: 16px; max-width: 980px; max-height: 620px; overflow-y: auto; }
+.underitem { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.hint2 { font-size: 18px; color: #a8957a; }
+.cost.cheap { background: radial-gradient(#b6ff9a, #3d9a16) !important; color: #0e2a03 !important; }
+.card .ctext.long { font-size: 13.5px; line-height: 1.35; }
+.showcard .ctext.long { font-size: 11px; }
+.bigcard .ctext.long { font-size: 17px; }
+.underlist .item { padding: 8px 16px; border-radius: 10px; border: 2px solid #6b5230; background: #2a1f15; font-size: 22px; }

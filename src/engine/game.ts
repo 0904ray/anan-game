@@ -27,7 +27,7 @@ export class Game {
     for (const p of [0, 1] as PlayerIdx[]) {
       const units = opts.chars[p].map((cid, slot) => g.makeUnit(cid, p, slot as 0 | 1)) as [Unit, Unit];
       if (units[0].charId === units[1].charId) { units[0].name += 'A'; units[1].name += 'B'; } // 同角色時加上 A/B 好分辨
-      const ps: PlayerState = { idx: p, name: opts.names[p], units, turnCount: 0, rescueUsed: false };
+      const ps: PlayerState = { idx: p, name: opts.names[p], units, turnCount: 0, rescueUsed: false, discardsThisTurn: 0 };
       state.players[p] = ps;
     }
     const first: PlayerIdx = opts.first ?? (g.rand() < 0.5 ? 0 : 1);
@@ -49,7 +49,7 @@ export class Game {
       id: `p${owner}u${slot}`, owner, slot, charId, name: c.name,
       hp: c.hp, maxHp: c.hp, ap: 0, apMax: c.ap, tp: c.tp, tpMax: c.tp, at: c.at, atkCost: c.atkCost, baseSp: c.sp,
       life: 'alive', critical: false, spBonus: 0,
-      deck, hand: [], discard: [], playing: [],
+      deck, hand: [], discard: [], playing: [], under: [],
       attacked: false, advanced: false, buyUsedThisTurn: false,
       dmgReduce: 0, noWound: false, noTpLoss: false, halfTpNext: false, tHp: 0, tTp: 0,
       counters,
@@ -100,6 +100,10 @@ export class Game {
     const max = Math.max(...es.map(e => this.effSp(e)));
     return es.filter(e => this.effSp(e) === max);
   }
+  /** 實際攻擊力（含角色能力加成） */
+  effAt(u: Unit): number { return u.at + (CHAR_DEFS[u.charId].hooks?.atBonus?.(this, u) ?? 0); }
+  /** 卡牌實際費用 */
+  cardCost(u: Unit, defId: string): number { const d = CARD_DEFS[defId]; return Math.max(0, d.costFor ? d.costFor(this, u) : d.cost); }
   counter(u: Unit, id: string): number { return u.counters[id] ?? 0; }
   addCounter(u: Unit, id: string, n: number) { u.counters[id] = (u.counters[id] ?? 0) + n; }
 
@@ -188,8 +192,14 @@ export class Game {
       case 'play': {
         const c = u.hand.find(x => x.uid === a.cardUid);
         if (!c) return '手牌中沒有這張牌';
-        const d = CARD_DEFS[c.defId];
-        if (u.ap < d.cost) return 'AP 不足';
+        if (u.ap < this.cardCost(u, c.defId)) return 'AP 不足';
+        return null;
+      }
+      case 'playUnder': {
+        if (!CHAR_DEFS[u.charId].canPlayUnder) return '這個角色不能使用下方的牌';
+        const c = u.under.find(x => x.uid === a.cardUid);
+        if (!c) return '沒有這張牌';
+        if (u.ap < this.cardCost(u, c.defId)) return 'AP 不足';
         return null;
       }
       case 'attack':
@@ -232,12 +242,29 @@ export class Game {
         const card = u.hand.splice(idx, 1)[0];
         u.playing.push(card);
         const d = CARD_DEFS[card.defId];
-        u.ap -= d.cost;
-        this.log(`${u.name} 打出【${d.name}】（-${d.cost} AP）`, u.owner);
+        const cost = this.cardCost(u, card.defId);
+        u.ap -= cost;
+        this.log(`${u.name} 打出【${d.name}】（-${cost} AP）`, u.owner);
         this.fx({ t: 'play', unitId: u.id, defId: d.id });
         yield* d.play(this, u);
         u.playing.splice(u.playing.indexOf(card), 1);
         u.discard.push(card); // 打出的牌進棄牌區（不算「棄牌」）
+        return;
+      }
+      case 'playUnder': {
+        const u = this.unit(a.unitId);
+        const idx = u.under.findIndex(x => x.uid === a.cardUid);
+        const cost = this.cardCost(u, u.under[idx].defId); // 先算費用（拿走後吞噬數會變少）
+        const card = u.under.splice(idx, 1)[0];
+        u.playing.push(card);
+        const d = CARD_DEFS[card.defId];
+        u.ap -= cost;
+        this.log(`${u.name} 使用${CHAR_DEFS[u.charId].underName ?? '下方'}的【${d.name}】（-${cost} AP）`, u.owner);
+        this.fx({ t: 'play', unitId: u.id, defId: d.id });
+        yield* d.play(this, u);
+        u.playing.splice(u.playing.indexOf(card), 1);
+        u.discard.push(card);
+        CHAR_DEFS[u.charId].hooks?.afterPlayUnder?.(this, u);
         return;
       }
       case 'attack': {
@@ -300,6 +327,7 @@ export class Game {
     const st = this.state;
     const ps = st.players[p];
     ps.turnCount++;
+    ps.discardsThisTurn = 0;
     st.turn++;
     st.active = p;
     this.fx({ t: 'turn', player: p });
@@ -376,7 +404,11 @@ export class Game {
       u.discard.push(card);
       const d = CARD_DEFS[card.defId];
       this.log(`${u.name} 棄置【${d.name}】`, u.owner);
-      for (const ally of this.allies(u)) CHAR_DEFS[ally.charId].hooks?.onAllyDiscard?.(this, ally, u, card);
+      this.state.players[u.owner].discardsThisTurn++;
+      for (const ally of this.allies(u)) {
+        const r = CHAR_DEFS[ally.charId].hooks?.onAllyDiscard?.(this, ally, u, card);
+        if (r) yield* r;
+      }
       if (d.onDiscard) yield* d.onDiscard(this, u, card);
     }
   }
@@ -392,7 +424,12 @@ export class Game {
   // 傷害、TP、狀態
   // ======================================================================
   /** [打擊]一次：造成 AT 點傷害並 -1 TP */
-  strikeOnce(src: Unit, tgt: Unit) { this.attackHit(src, tgt, src.at, true); }
+  strikeOnce(src: Unit, tgt: Unit): number {
+    if (tgt.life === 'dead') return 0;
+    const dmg = this.attackHit(src, tgt, this.effAt(src), true);
+    CHAR_DEFS[src.charId].hooks?.onStrike?.(this, src);
+    return dmg;
+  }
   strike(src: Unit, tgt: Unit, times: number) {
     for (let i = 0; i < times; i++) {
       if (tgt.life === 'dead' || this.state.winner !== null) break;
@@ -400,15 +437,15 @@ export class Game {
     }
   }
 
-  /** 一次攻擊命中 */
-  attackHit(src: Unit, tgt: Unit, base: number, isStrike: boolean) {
-    if (tgt.life === 'dead') return;
+  /** 一次攻擊命中，回傳對 HP 造成的傷害 */
+  attackHit(src: Unit, tgt: Unit, base: number, isStrike: boolean): number {
+    if (tgt.life === 'dead') return 0;
     if (tgt.life === 'dying') {
       const dmg = Math.max(0, base - tgt.dmgReduce);
       const loss = 1 + Math.floor(dmg / 4);
       this.log(`${tgt.name}（瀕死）受到攻擊，TP -${loss}`, src.owner);
       this.dyingTpLoss(tgt, loss);
-      return;
+      return 0;
     }
     const wounded = this.isWounded(tgt);
     const dmg = Math.max(0, base + (wounded ? 1 : 0) - tgt.dmgReduce);
@@ -416,6 +453,7 @@ export class Game {
     this.log(`${tgt.name} 受到 ${dmg} 點傷害${extra ? `（${extra}）` : ''}`, src.owner);
     this.dealHp(tgt, dmg);
     if (isStrike && tgt.life === 'alive') this.loseTp(tgt, 1);
+    return dmg;
   }
 
   /** 扣 HP（臨時 HP 先扣），歸零進入[瀕死] */
@@ -434,8 +472,9 @@ export class Game {
     const before = u.hp;
     u.hp = Math.min(u.maxHp, u.hp + n);
     const got = u.hp - before;
+    if (!got) return; // 滿血就不記錄
     this.log(`${u.name} 回復 ${got} HP`, u.owner);
-    if (got) this.fx({ t: 'heal', unitId: u.id, amount: got });
+    this.fx({ t: 'heal', unitId: u.id, amount: got });
   }
 
   /** 減少 TP（打擊或效果）。TP 歸零 → [重創]：-3 HP 直傷 */
@@ -459,6 +498,12 @@ export class Game {
       this.log(`${u.name} 陷入[負傷]`, u.owner);
       this.fx({ t: 'status', unitId: u.id, text: '負傷' });
     }
+  }
+
+  /** 直接[處決]瀕死單位 */
+  executeUnit(u: Unit) {
+    if (u.life !== 'dying') return;
+    this.dyingTpLoss(u, u.tp);
   }
 
   private dyingTpLoss(u: Unit, n: number) {

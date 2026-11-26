@@ -34,6 +34,7 @@ export interface Unit {
   hand: CardInst[];
   discard: CardInst[];
   playing: CardInst[]; // 正在結算中的牌
+  under: CardInst[];   // 壓在角色下方的牌（例如葛蘭妮吞噬的牌）
 
   // 回合內旗標
   attacked: boolean;
@@ -58,6 +59,7 @@ export interface PlayerState {
   units: [Unit, Unit];
   turnCount: number;
   rescueUsed: boolean;
+  discardsThisTurn: number; // 我方本回合棄過幾張牌
 }
 
 // ===== 等待玩家做選擇 =====
@@ -103,6 +105,7 @@ export interface GameState {
 // ===== 玩家送出的操作 =====
 export type Action =
   | { type: 'play'; unitId: string; cardUid: string }
+  | { type: 'playUnder'; unitId: string; cardUid: string } // 使用壓在角色下方的牌
   | { type: 'attack'; unitId: string }
   | { type: 'advance'; unitId: string }
   | { type: 'rescue'; unitId: string }

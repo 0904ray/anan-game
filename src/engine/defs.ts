@@ -10,6 +10,8 @@ export interface CardDef {
   name: string;
   cost: number;
   text: string;          // 打出效果說明
+  /** 依情況變動的費用（沒寫就是 cost） */
+  costFor?(g: Game, u: Unit): number;
   discardText?: string;  // (棄置時) 效果說明
   play(g: Game, u: Unit): Eff;
   onDiscard?(g: Game, u: Unit, card: CardInst): Eff;
@@ -35,14 +37,23 @@ export interface CharDef {
   at: number;
   atkCost: number;
   sp: number;
-  counters?: { id: string; name: string }[]; // 例如 財富
+  counters?: { id: string; name: string; hidden?: boolean }[]; // 例如 財富
+  /** 可以使用壓在下方的牌（葛蘭妮） */
+  canPlayUnder?: boolean;
+  underName?: string; // 下方牌堆的名稱，例如「吞噬」
   abilities: AbilityDef[];
   deck: [string, number][];
   hooks?: {
     /** 回合開始、正常抽牌之前 */
     onTurnStartBeforeDraw?(g: Game, u: Unit): void;
-    /** 我方任一單位棄牌時（每張觸發一次），u = 擁有此能力的單位 */
-    onAllyDiscard?(g: Game, u: Unit, discarder: Unit, card: CardInst): void;
+    /** 我方任一單位棄牌時（每張觸發一次），u = 擁有此能力的單位。可以回傳 Eff 讓玩家做選擇 */
+    onAllyDiscard?(g: Game, u: Unit, discarder: Unit, card: CardInst): Eff | void;
+    /** 額外 AT */
+    atBonus?(g: Game, u: Unit): number;
+    /** 此單位每打擊一次之後 */
+    onStrike?(g: Game, u: Unit): void;
+    /** 使用下方的牌之後 */
+    afterPlayUnder?(g: Game, u: Unit): void;
     /** 此單位發動[收買]後 */
     onBuy?(g: Game, u: Unit): void;
   };

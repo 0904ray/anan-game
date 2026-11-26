@@ -1,4 +1,5 @@
 import './chars/savanna';
+import './chars/granny';
 import { Game } from './game';
 import { CARD_DEFS, CHAR_DEFS } from './defs';
 import type { Action, Answer, GameState, PlayerIdx, Prompt } from './types';
@@ -27,6 +28,7 @@ export function legalActions(g: Game, player: PlayerIdx): Action[] {
   const out: Action[] = [];
   for (const u of st.players[player].units) {
     for (const c of u.hand) out.push({ type: 'play', unitId: u.id, cardUid: c.uid });
+    for (const c of u.under) out.push({ type: 'playUnder', unitId: u.id, cardUid: c.uid });
     out.push({ type: 'attack', unitId: u.id }, { type: 'advance', unitId: u.id }, { type: 'rescue', unitId: u.id });
     for (const ab of CHAR_DEFS[u.charId].abilities) if (ab.active) out.push({ type: 'ability', unitId: u.id, abilityId: ab.id });
   }
