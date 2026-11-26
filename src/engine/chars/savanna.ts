@@ -35,7 +35,7 @@ const cards: CardDef[] = [
   {
     id: 'sav_stock', charId: 'savanna', name: '武器儲備', cost: 1,
     text: '自身抽 1 張牌，棄置 1 張牌。',
-    discardText: '[收買2] 抽 2 張牌。',
+    discardText: '花費[收買2] 抽 2 張牌。',
     *play(g, u) {
       g.draw(u, 1);
       const pick = yield* g.chooseHandCards(u, '武器儲備：選 1 張牌棄置', 1, 1);
@@ -48,7 +48,7 @@ const cards: CardDef[] = [
   {
     id: 'sav_arms', charId: 'savanna', name: '軍火交易', cost: 1,
     text: '棄置 1 張牌，打擊 1 名單位。',
-    discardText: '[收買2] 打擊 1 名單位 2 次。',
+    discardText: '花費[收買2] 打擊 1 名單位 2 次。',
     *play(g, u) {
       const pick = yield* g.chooseHandCards(u, '軍火交易：選 1 張牌棄置', 1, 1);
       yield* g.discardCards(u, pick);
@@ -64,7 +64,7 @@ const cards: CardDef[] = [
   },
   {
     id: 'sav_contract', charId: 'savanna', name: '武裝合同', cost: 2,
-    text: '自身抽 1 張牌。[收買2] 選 1 效果：(1) 指定 1 名我方單位恢復 4 HP；(2) 指定 1 名我方單位受到傷害 -1，直到下個自身回合。',
+    text: '自身抽 1 張牌。花費[收買2] 選 1 效果：(1) 指定 1 名我方單位恢復 4 HP；(2) 指定 1 名我方單位受到傷害 -1，直到下個自身回合。',
     discardText: '+1 [財富]。',
     *play(g, u) {
       g.draw(u, 1);
@@ -83,7 +83,7 @@ const cards: CardDef[] = [
   },
   {
     id: 'sav_norefund', charId: 'savanna', name: '恕不退款', cost: 3,
-    text: '指定 1 名我方單位，直到下個自身回合不會陷入[負傷]。[收買4] 改為不會減少 TP。',
+    text: '指定 1 名我方單位，直到下個自身回合不會陷入[負傷]。花費[收買4] 改為不會減少 TP。',
     *play(g, u) {
       const t = yield* g.chooseAlly(u, '恕不退款：選擇我方單位');
       if (!t) return;
@@ -98,7 +98,7 @@ const cards: CardDef[] = [
   },
   {
     id: 'sav_vulcan', charId: 'savanna', name: '火神集團', cost: 3,
-    text: '最多棄置 2 張牌，每棄 1 張牌回復自身 1 HP。[收買4] 打擊 1 名單位 3 次。',
+    text: '最多棄置 2 張牌，每棄 1 張牌回復自身 1 HP。花費[收買4] 打擊 1 名單位 3 次。',
     *play(g, u) {
       const pick = yield* g.chooseHandCards(u, '火神集團：最多棄置 2 張牌（每張回復 1 HP）', 0, 2);
       yield* g.discardCards(u, pick);
@@ -124,7 +124,7 @@ const cards: CardDef[] = [
   },
   {
     id: 'sav_heiress', charId: 'savanna', name: '武裝千金', cost: 6,
-    text: '我方全體[洗牌]，使敵方全體 -3 TP。[收買4] 本回合結束時，敵方的[重創]單位下個回合只能回復 ½ 的 TP（無條件進位）。',
+    text: '我方全體[洗牌]，使敵方全體 -3 TP。花費[收買4] 本回合結束時，敵方的[重創]單位下個回合只能回復 ½ 的 TP（無條件進位）。',
     discardText: '+1 [財富]。',
     *play(g, u) {
       for (const a of g.state.players[u.owner].units) g.abilityShuffle(a);
@@ -155,7 +155,7 @@ const savanna: CharDef = {
   abilities: [
     { id: 'p1', active: false, name: '人脈', text: '每回合首次觸發[收買]時，隊友抽 1 張牌。' },
     {
-      id: 'a2', active: true, name: '週轉', text: '自身沒有手牌時，[收買2] 抽 1 張牌，使 1 名敵方單位 -1 TP。',
+      id: 'a2', active: true, name: '週轉', text: '自身沒有手牌時，花費[收買2] 抽 1 張牌，使 1 名敵方單位 -1 TP。',
       canUse: (g, u) => u.hand.length === 0 && g.counter(u, W) >= 2 && g.targetableEnemies(u.owner).length > 0,
       *use(g, u) {
         yield* buy(g, u, 2, '週轉：抽 1 張牌，使 1 名敵方 -1 TP', false);
@@ -165,7 +165,7 @@ const savanna: CharDef = {
       },
     },
     {
-      id: 'a3', active: true, name: '調貨', text: '[收買4] 從牌堆或棄牌區檢索 1 張【武裝千金】。',
+      id: 'a3', active: true, name: '調貨', text: '花費[收買4] 從牌堆或棄牌區檢索 1 張【武裝千金】。',
       canUse: (g, u) => g.counter(u, W) >= 4 && [...u.deck, ...u.discard].some(c => c.defId === 'sav_heiress'),
       *use(g, u) {
         yield* buy(g, u, 4, '調貨：檢索 1 張【武裝千金】', false);
