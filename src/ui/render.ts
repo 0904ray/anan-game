@@ -76,7 +76,7 @@ export function badges(g: Game, u: Unit): string {
 export function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: string[], myTurn: boolean): string {
   const c = CHAR_DEFS[u.charId];
   const targetable = targetIds.includes(u.id);
-  const cls = ['unit', side, 's' + u.slot, u.life !== 'alive' ? u.life : '', targetable ? 'targetable' : '', targetable && u.owner === me ? 'ally' : ''].join(' ');
+  const cls = ['unit', side, 's' + u.slot, view && view.active !== u.owner ? 'off-turn' : '', u.life !== 'alive' ? u.life : '', targetable ? 'targetable' : '', targetable && u.owner === me ? 'ally' : ''].join(' ');
   const half = Math.floor(u.tpMax / 2);
   const tpPips = Array.from({ length: u.tpMax }, (_, i) => `<div class="pip tp ${i < u.tp ? 'on' : ''} ${u.tp <= half && u.life === 'alive' ? 'low' : ''} ${i === half - 1 ? 'half' : ''}"></div>`).join('');
   const apPips = Array.from({ length: u.apMax }, (_, i) => `<div class="pip ap ${i < u.ap ? 'on' : ''}"></div>`).join('');

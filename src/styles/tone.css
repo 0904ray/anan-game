@@ -1,0 +1,37 @@
+/* ===================== 色調（畫面整體的鮮豔度層次） ===================== */
+/*
+  原則：只有「現在能操作」或「正在發生」的東西是全彩，其他裝飾性的圖退到背景。
+  畫面太刺眼或太暗時，只調這裡的變數就好。
+    全彩：滑鼠指著／準備打出／選擇中的牌、出牌展示區、飛行中的牌、輪到的角色
+    略收：可以出的手牌、可以選的手牌
+    收斂：不能出的手牌、牌堆與卡背、沒輪到的角色、卡面底框
+*/
+:root {
+  --tone-card-ready: saturate(.82) brightness(.92);   /* 可以出／可以選的手牌卡圖 */
+  --tone-card-idle: saturate(.5) brightness(.68);     /* 不能出的手牌卡圖（含對手回合時） */
+  --tone-frame: saturate(.6) brightness(.62);         /* 卡面底框（只露出外圈，壓暗避免搶戲） */
+  --tone-back: saturate(.55) brightness(.62);         /* 牌堆、卡背 */
+  --tone-unit-idle: saturate(.72) brightness(.8);     /* 沒輪到那一方的角色頭像 */
+  --tone-vignette: rgba(0, 0, 0, .42);                /* 四周暗角 */
+}
+
+/* 牌桌四周加暗角，把視線收到中間 */
+.board::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 75% 70% at 50% 50%, transparent 55%, var(--tone-vignette) 100%); }
+
+/* 手牌：依能不能操作分層；指著、準備打出、已選取時恢復全彩 */
+.card .art img { filter: var(--tone-card-idle); transition: filter .18s; }
+.card.playable .art img, .card.selectable .art img { filter: var(--tone-card-ready); }
+.card:hover .art img, .card.picked .art img, .card.selected .art img, .card.drag-ghost .art img { filter: none; }
+.card .face .frame { filter: var(--tone-frame); }
+.card:hover .face .frame, .card.picked .face .frame { filter: saturate(.85) brightness(.8); }
+
+/* 可以出的牌：只留細金框，不再整排發光；指著時才發光 */
+.card.playable { box-shadow: 0 10px 22px rgba(0, 0, 0, .6), 0 0 0 1px rgba(255, 207, 90, .45); }
+.card.playable:hover { box-shadow: 0 24px 40px rgba(0, 0, 0, .7), 0 0 22px rgba(255, 207, 90, .55); }
+.face::after { opacity: .5; }
+
+/* 牌堆與卡背退到背景 */
+.back img { filter: var(--tone-back); }
+
+/* 沒輪到的那一方：頭像收斂，一眼看出現在是誰的回合 */
+.unit.off-turn .portrait .art img { filter: var(--tone-unit-idle); transition: filter .3s; }
