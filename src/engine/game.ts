@@ -51,7 +51,7 @@ export class Game {
       hp: c.hp, maxHp: c.hp, ap: 0, apMax: c.ap, tp: c.tp, tpMax: c.tp, at: c.at, atkCost: c.atkCost, baseSp: c.sp,
       life: 'alive', critical: false, spBonus: 0,
       deck, hand: [], discard: [], playing: [], under: [],
-      attacked: false, advanced: false, buyUsedThisTurn: false,
+      attacksThisTurn: 0, advanced: false, buyUsedThisTurn: false,
       dmgReduce: 0, noWound: false, noTpLoss: false, halfTpNext: false, tHp: 0, tTp: 0,
       counters,
     };
@@ -214,11 +214,14 @@ export class Game {
         if (u.ap < this.cardCost(u, c.defId)) return 'AP 不足';
         return null;
       }
-      case 'attack':
-        if (u.attacked) return '這回合已經主動攻擊過了';
-        if (u.ap < u.atkCost) return 'AP 不足';
+      case 'attack': {
+        const h = CHAR_DEFS[u.charId].hooks;
+        if (h?.canAttack && !h.canAttack(this, u)) return '沒有足夠的攻擊資源';
+        if (u.attacksThisTurn >= (h?.attackLimit?.(this, u) ?? 1)) return '這回合已經主動攻擊過了';
+        if (u.ap < (h?.attackApCost?.(this, u) ?? u.atkCost)) return 'AP 不足';
         if (!this.targetableEnemies(player).length) return '沒有可攻擊的目標';
         return null;
+      }
       case 'advance':
         if (u.advanced) return '這回合已經居前過了';
         if (u.ap < 1) return 'AP 不足';
@@ -283,12 +286,15 @@ export class Game {
       }
       case 'attack': {
         const u = this.unit(a.unitId);
-        u.ap -= u.atkCost;
-        u.attacked = true;
+        const h = CHAR_DEFS[u.charId].hooks;
+        u.ap -= h?.attackApCost?.(this, u) ?? u.atkCost;
+        u.attacksThisTurn++;
+        h?.onAttack?.(this, u);
         const t = yield* this.chooseEnemy(u, `${u.name} 普攻：選擇目標`);
         if (!t) return;
         this.log(`${u.name} 普攻 ${t.name}`, u.owner);
-        this.strikeOnce(u, t);
+        const dmg = this.strikeOnce(u, t, h?.strikeOpts?.(this, u));
+        h?.onAttackHit?.(this, u, t, dmg);
         return;
       }
       case 'advance': {
@@ -319,7 +325,7 @@ export class Game {
         ally.hp = Math.min(ally.maxHp, cost);
         ally.critical = ally.tp === 0;
         ally.ap = 0;
-        ally.attacked = true; ally.advanced = true;
+        ally.attacksThisTurn = 999; ally.advanced = true; // 被救治的角色當回合不能再行動
         this.log(`${u.name} 支付 ${apPay} AP + ${hpPay} HP，[救治] ${ally.name}，以 ${ally.hp} HP 回歸！`, u.owner);
         this.fx({ t: 'heal', unitId: ally.id, amount: ally.hp });
         return;
@@ -348,7 +354,7 @@ export class Game {
     for (const u of ps.units) {
       if (u.life === 'dead') continue;
       u.tHp = 0; u.tTp = 0; u.dmgReduce = 0; u.noWound = false; u.noTpLoss = false;
-      u.spBonus = 0; u.attacked = false; u.advanced = false; u.buyUsedThisTurn = false;
+      u.spBonus = 0; u.attacksThisTurn = 0; u.advanced = false; u.buyUsedThisTurn = false;
       if (u.life === 'alive') {
         if (u.halfTpNext) {
           u.tp = Math.ceil(u.tpMax / 2);
@@ -434,23 +440,27 @@ export class Game {
   // ======================================================================
   // 傷害、TP、狀態
   // ======================================================================
-  /** [打擊]一次：造成 AT 點傷害並 -1 TP */
-  strikeOnce(src: Unit, tgt: Unit): number {
+  /**
+   * [打擊]一次：造成 AT 點傷害並 -1 TP。
+   * opts.direct = [直擊]：傷害照算，但不會減少對方 TP
+   * opts.power = 用指定數值取代 AT（例如「造成焰能數 ×2 的直擊」）
+   */
+  strikeOnce(src: Unit, tgt: Unit, opts?: { direct?: boolean; power?: number }): number {
     if (tgt.life === 'dead') return 0;
     this.fx({ t: 'strike', unitId: src.id, targetId: tgt.id });
-    const dmg = this.attackHit(src, tgt, this.effAt(src), true);
+    const dmg = this.attackHit(src, tgt, opts?.power ?? this.effAt(src), true, opts?.direct);
     CHAR_DEFS[src.charId].hooks?.onStrike?.(this, src);
     return dmg;
   }
-  strike(src: Unit, tgt: Unit, times: number) {
+  strike(src: Unit, tgt: Unit, times: number, opts?: { direct?: boolean; power?: number }) {
     for (let i = 0; i < times; i++) {
       if (tgt.life === 'dead' || this.state.winner !== null) break;
-      this.strikeOnce(src, tgt);
+      this.strikeOnce(src, tgt, opts);
     }
   }
 
-  /** 一次攻擊命中，回傳對 HP 造成的傷害 */
-  attackHit(src: Unit, tgt: Unit, base: number, isStrike: boolean): number {
+  /** 一次攻擊命中，回傳對 HP 造成的傷害。direct = [直擊]（不減少 TP） */
+  attackHit(src: Unit, tgt: Unit, base: number, isStrike: boolean, direct = false): number {
     if (tgt.life === 'dead') return 0;
     if (tgt.life === 'dying') {
       const dmg = Math.max(0, base - tgt.dmgReduce);
@@ -464,7 +474,7 @@ export class Game {
     const extra = [wounded ? '負傷+1' : '', tgt.dmgReduce ? `減傷-${tgt.dmgReduce}` : ''].filter(Boolean).join('、');
     this.log(`${tgt.name} 受到 ${dmg} 點傷害${extra ? `（${extra}）` : ''}`, src.owner);
     this.dealHp(tgt, dmg);
-    if (isStrike && tgt.life === 'alive') this.loseTp(tgt, 1);
+    if (isStrike && !direct && tgt.life === 'alive') this.loseTp(tgt, 1);
     return dmg;
   }
 

@@ -37,7 +37,7 @@ export interface Unit {
   under: CardInst[];   // 壓在角色下方的牌（例如葛蘭妮吞噬的牌）
 
   // 回合內旗標
-  attacked: boolean;
+  attacksThisTurn: number; // 本回合已主動攻擊幾次（上限由角色 hooks.attackLimit 決定，預設 1）
   advanced: boolean;
   buyUsedThisTurn: boolean;
 

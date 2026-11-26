@@ -12,8 +12,8 @@ export function renderLobby(status = '', roomCode = '') {
   stage.innerHTML = `
     <img class="bg-img" src="${ASSET.lobby}">
     <div class="lobby">
-      <h1>冷倫卡牌對戰</h1>
-      <div class="sub">暫定名稱 · ${VERSION}</div>
+      <h1>Ethereal Arena</h1>
+      <div class="sub">${VERSION}</div>
       <div class="panel">
         <label>你的名字 <input id="name" maxlength="12" value="${esc(myName)}"></label>
         <button class="btn" data-act="host" ${ONLINE_OK ? '' : 'disabled'}>建立房間</button>

@@ -54,6 +54,18 @@ export interface CharDef {
     atBonus?(g: Game, u: Unit): number;
     /** 此單位每打擊一次之後 */
     onStrike?(g: Game, u: Unit): void;
+    /** 每回合最多主動攻擊幾次（沒寫就是 1） */
+    attackLimit?(g: Game, u: Unit): number;
+    /** 主動攻擊要花多少 AP（沒寫就是 u.atkCost） */
+    attackApCost?(g: Game, u: Unit): number;
+    /** 主動攻擊的其他限制（例如專屬資源不足就不能攻擊） */
+    canAttack?(g: Game, u: Unit): boolean;
+    /** 主動攻擊成立、扣完費用之後（用來扣專屬資源或觸發「首次攻擊」效果） */
+    onAttack?(g: Game, u: Unit): void;
+    /** 主動攻擊時那一次[打擊]的設定（例如改成[直擊]、或用指定數值取代 AT） */
+    strikeOpts?(g: Game, u: Unit): { direct?: boolean; power?: number };
+    /** 主動攻擊命中之後，t = 目標、dmg = 這次對 HP 造成的傷害 */
+    onAttackHit?(g: Game, u: Unit, t: Unit, dmg: number): void;
     /** 使用下方的牌之後 */
     afterPlayUnder?(g: Game, u: Unit): void;
   };
