@@ -139,6 +139,10 @@ const granny: CharDef = {
   lore: '古老魔族的後裔，本性不壞，但無法抗拒本能的吞噬周邊的事物。時常處於飢餓，但進食後帶來的不是飽足感，而是更加旺盛的食慾，和更為兇殘的力量。',
   hp: 45, ap: 6, tp: 5, at: 1, atkCost: 2, sp: 0,
   counters: [{ id: G, name: '暴食' }, { id: PERM, name: '永久AT', hidden: true }],
+  keywords: {
+    暴食: '葛蘭妮的資源。我方棄牌時可以選擇 +1，部分卡牌、使用吞噬的牌也會增加；用來[吞噬]和發動卡牌的追加效果。',
+    吞噬: '把牌放到葛蘭妮下方的「吞噬」牌堆。每有 X 張，葛蘭妮 AT +X；吞噬的牌可以直接使用，或用「消化」一次放進棄牌區換永久 AT。',
+  },
   canPlayUnder: true,
   underName: '吞噬',
   abilities: [

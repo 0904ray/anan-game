@@ -42,6 +42,8 @@ export interface CharDef {
   atkCost: number;
   sp: number;
   counters?: { id: string; name: string; hidden?: boolean }[]; // 例如 財富
+  /** 角色專屬詞條的說明（卡面上用 [詞] 標起來的詞），例如 { 財富: '…' }。長按放大卡牌時會顯示 */
+  keywords?: Record<string, string>;
   /** 可以使用壓在下方的牌（葛蘭妮） */
   canPlayUnder?: boolean;
   underName?: string; // 下方牌堆的名稱，例如「吞噬」

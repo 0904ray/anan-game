@@ -1,5 +1,5 @@
 // 對戰畫面：把遊戲狀態畫成 HTML（不處理輸入、不播動畫）
-import { Game, CARD_DEFS, CHAR_DEFS, legalActions, type Action, type GameState, type PlayerIdx, type Unit, type CardInst, type Prompt, type UnitSnap } from '../engine';
+import { Game, CARD_DEFS, CHAR_DEFS, legalActions, findKeyword, keywordNames, type Action, type GameState, type PlayerIdx, type Unit, type CardInst, type Prompt, type UnitSnap } from '../engine';
 import { ASSET, esc, hue, stage } from './dom';
 import { view, me, ui, lastPlayed, hoverDef, rel, liveGame } from './state';
 
@@ -114,19 +114,35 @@ export function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: s
 /** 角色主題色 */
 export const themeOf = (charId: string) => CHAR_DEFS[charId]?.theme ?? '#c8963e';
 
-// 卡牌文字裡的特殊詞條上色：[打擊] 這類用中括號包起來的詞、【卡名】
-//   攻擊類、狀態類是全遊戲共用的詞；其他中括號詞（財富、暴食、焰能、收買X、連擊X…）視為角色專屬詞，用角色主題色。
-//   新角色只要在卡面文字用 [詞] 標起來就會自動上色，不用改這裡。
-const KW_ATTACK = new Set(['打擊', '直擊', '直傷', '主動攻擊', '反擊']);
-const KW_STATUS = new Set(['負傷', '重創', '瀕死', '處決', '救治', '居前']);
-export function richText(text: string): string {
-  return esc(text)
-    .replace(/\[([^\]]+)\]/g, (_, w: string) => {
-      const base = w.replace(/[\s\dX、,，]+$/u, '').trim();
-      const cls = KW_ATTACK.has(base) ? 'atk' : KW_STATUS.has(base) ? 'sta' : 'chr';
-      return `<span class="kw kw-${cls}">${w}</span>`;
-    })
-    .replace(/【([^】]+)】/g, '<span class="kw kw-card">【$1】</span>');
+// 卡牌文字裡的特殊詞條：上色＋底線（有說明的詞，長按放大卡牌時可以點開說明）
+//   [詞] 一律當詞條；沒加中括號但和詞條同名的詞（例如「打擊 1 名單位」）也認得；【卡名】金色。
+//   顏色分類、說明文字都在 engine/keywords.ts（共用）和角色檔的 keywords（角色專屬），這裡不用改。
+let kwRegex: RegExp | null = null;
+function kwPattern(): RegExp {
+  if (!kwRegex) kwRegex = new RegExp(`\\[([^\\]]+)\\]|【([^】]+)】|(${keywordNames().join('|')})`, 'g');
+  kwRegex.lastIndex = 0;
+  return kwRegex;
+}
+/** 一個詞條的 HTML（word 已經過 esc） */
+export function kwSpan(word: string, self?: string): string {
+  const k = findKeyword(word);
+  if (k && k.name === self) return `<span class="kw kw-${k.cat}">${word}</span>`; // 說明裡提到自己：不加底線
+  if (!k) return `<span class="kw kw-chr">${word}</span>`;
+  return `<span class="kw kw-${k.cat} kw-def" data-kw="${esc(k.name)}">${word}</span>`;
+}
+export function richText(text: string, self?: string): string {
+  return esc(text).replace(kwPattern(), (_m, br?: string, card?: string, plain?: string) =>
+    card !== undefined ? `<span class="kw kw-card">【${card}】</span>` : kwSpan(br ?? plain!, self));
+}
+/** 一段文字裡出現的詞條（有說明的、依出現順序、不重複） */
+export function keywordsIn(text: string): string[] {
+  const out: string[] = [];
+  for (const m of text.matchAll(kwPattern())) {
+    if (m[2] !== undefined) continue;
+    const k = findKeyword(m[1] ?? m[3]);
+    if (k && !out.includes(k.name)) out.push(k.name);
+  }
+  return out;
 }
 
 /** 卡牌文字長度分級：字越多字級越小，確保整段放得進文字框 */
@@ -146,7 +162,7 @@ export function cardInner(defId: string, cost?: number): string {
     <div class="cost ${c < d.cost ? 'cheap' : ''}">${c}</div>
     <div class="art" style="--hue:${hue(defId)}"><span class="glyph">${esc(d.name[0])}</span><img src="${ASSET.card(defId)}"></div>
     <div class="cname">${esc(d.name)}</div>
-    <div class="ctext ${textSize(d)}">${richText(d.text)}${d.discardText ? `<span class="dis"> (棄置時) ${richText(d.discardText)}</span>` : ''}</div>
+    <div class="ctext ${textSize(d)}">${richText(d.text)}${d.discardText ? `<span class="dis"> ${kwSpan('(棄置時)')} ${richText(d.discardText)}</span>` : ''}</div>
   </div>`;
 }
 

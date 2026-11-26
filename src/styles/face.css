@@ -11,13 +11,14 @@
 .face .cname { background: rgba(10, 7, 5, .9); border-top: 2px solid var(--theme); border-bottom: 2px solid var(--theme); text-shadow: 0 2px 3px #000; box-sizing: border-box; }
 .face .ctext { background: rgba(14, 10, 8, .9); border-radius: 8px; box-sizing: border-box; }
 
-/* 特殊詞條上色（render.ts 的 richText）：攻擊類、狀態類共用；角色專屬詞用角色主題色 */
+/* 特殊詞條（render.ts 的 richText）：攻擊類、狀態類共用色；角色專屬詞用角色主題色。有說明的詞加底線 */
 .kw { font-weight: 700; }
 .kw-atk { color: #ff9b5e; }
 .kw-sta { color: #ff7a9a; }
+.kw-sys { color: inherit; }
 .kw-chr { color: color-mix(in srgb, var(--theme, #e0a93e) 70%, #fff); }
 .kw-card { color: #ffe08a; }
-.dis .kw { filter: brightness(1.05); }
+.kw-def { text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, currentColor 65%, transparent); }
 
 /* 卡背 */
 .back { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; background: repeating-linear-gradient(45deg, #3b2412 0 8px, #2b190b 8px 16px); }
@@ -26,9 +27,26 @@
 .back.rot { background: repeating-linear-gradient(-45deg, #3b2412 0 8px, #2b190b 8px 16px); }
 .pile.deck, .minipiles .mp > div:not(.dis) { border-color: var(--theme, #8b6a3a); }
 
-/* 長按放大（ui/zoom.ts）：掛在 body 上，--k＝舞台縮放比例 */
-.zoom-bg { position: fixed; inset: 0; z-index: 10000; background: rgba(0, 0, 0, .74); display: flex; align-items: center; justify-content: center; animation: zoomin .16s ease-out; font-family: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif; color: #f1ece2; user-select: none; }
-.zoom-bg .zoomcard { position: relative; top: auto; flex: none; pointer-events: none; transform: scale(calc(var(--k) * 3.05)) !important; transform-origin: 50% 50%; transition: none; box-shadow: 0 6px 18px rgba(0, 0, 0, .7), 0 0 14px rgba(255, 207, 90, .3); border-color: var(--theme, #c8963e); }
+/* 長按放大（ui/zoom.ts）：掛在 body 上，--k＝舞台縮放比例；左邊詞條說明、右邊放大的卡 */
+.zoom-bg { position: fixed; inset: 0; z-index: 10000; background: rgba(0, 0, 0, .78); display: flex; align-items: center; justify-content: center; gap: calc(var(--k) * 64px);
+  animation: zoomin .16s ease-out; font-family: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif; color: #f1ece2; user-select: none; }
+.zoom-cardbox { position: relative; flex: none; width: calc(var(--k) * 701px); height: calc(var(--k) * 982px); }
+.zoom-bg .zoomcard { position: absolute; left: 0; top: 0; pointer-events: none; transform: scale(calc(var(--k) * 3.05)) !important; transform-origin: 0 0; transition: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .7), 0 0 14px rgba(255, 207, 90, .3); border-color: var(--theme, #c8963e); }
+.zoom-bg .zoomcard .kw-def { pointer-events: auto; cursor: help; }
+.zoom-info { flex: none; width: calc(var(--k) * 700px); max-height: calc(var(--k) * 940px); display: flex; flex-direction: column; box-sizing: border-box; padding: calc(var(--k) * 26px) calc(var(--k) * 30px);
+  border-radius: calc(var(--k) * 18px); background: rgba(20, 15, 12, .94); border: calc(var(--k) * 2px) solid #6b5230; font-size: calc(var(--k) * 33px); line-height: 1.5; }
+.zi-head { font-size: calc(var(--k) * 36px); font-weight: 900; color: #ffd98c; margin-bottom: calc(var(--k) * 12px); }
+.zi-list { overflow-y: auto; min-height: 0; flex: 1; }
+.zi-entry { padding: calc(var(--k) * 12px) calc(var(--k) * 16px); border-radius: calc(var(--k) * 12px); border-left: calc(var(--k) * 5px) solid transparent; transition: background .15s, border-color .15s; }
+.zi-entry + .zi-entry { margin-top: calc(var(--k) * 6px); }
+.zi-entry.on { background: rgba(255, 207, 90, .12); border-left-color: #ffcf5a; }
+.zi-name { font-size: calc(var(--k) * 37px); }
+.zi-name .kw-sys { color: #ffe5b0; }
+.zi-text { color: #e2d6c0; }
+.zi-text .kw-def { cursor: pointer; }
+.zi-wip { margin-left: calc(var(--k) * 12px); font-size: calc(var(--k) * 20px); padding: 0 calc(var(--k) * 10px); border-radius: calc(var(--k) * 6px); background: #4a3a2a; color: #c8b28a; vertical-align: middle; }
+.zi-hint { margin-top: calc(var(--k) * 12px); font-size: calc(var(--k) * 22px); color: rgba(255, 240, 210, .5); }
 .zoom-bg .zoom-hint { position: absolute; bottom: calc(var(--k) * 14px); left: 0; right: 0; text-align: center; font-size: calc(var(--k) * 24px); color: rgba(255, 240, 210, .6); pointer-events: none; }
 @keyframes zoomin { from { opacity: 0; } to { opacity: 1; } }
 [data-zoom] { -webkit-touch-callout: none; }
