@@ -1,26 +1,34 @@
-/* ===================== 卡面與卡背（各角色專屬圖，統一規格） ===================== */
+/* ===================== 卡面與卡背（統一規格） ===================== */
 /*
-  卡面由下到上分層：角色底框圖（assets/frames/<角色>.png）→ 卡圖 → 名稱條 → 文字框 → 費用。
-  名稱條、文字框都是深色半透明底，底框圖只會從外圈和區塊之間露出來，所以底框畫得再花也不影響閱讀。
-  卡背：角色專屬（assets/backs/<角色>.png）→ 通用卡背 → 佔位花紋，缺圖時自動露出下一層。
-  圖片一律用 object-fit: fill 撐滿（2:3 的圖放進 5:7 的卡只會輕微拉伸，外框不會被裁掉）。
+  卡面由遊戲畫：深色底 → 卡圖 → 名稱條 → 文字框 → 費用，外圈細框用卡牌所屬角色的主題色（--theme）。
+  卡面不用底框圖（各角色看不出差異，改用主題色區分）。
+  卡背：角色專屬（assets/backs/<角色>）→ 通用卡背 → 佔位花紋，缺圖時自動露出下一層。
+  .back.rot＝橫放的卡背（敵方牌堆），圖片轉 90 度，不會被壓扁。
 */
 .face { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; background: radial-gradient(ellipse at 50% 40%, #2a1f15, #120c08); }
-.face .frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
 .face::after { content: ''; position: absolute; inset: 3px; border: 1.5px solid var(--theme); border-radius: 10px; opacity: .8; pointer-events: none; }
 .face .art { box-shadow: 0 0 0 2px var(--theme), 0 4px 10px rgba(0, 0, 0, .55); }
-.face .cname { background: rgba(10, 7, 5, .9); border-top: 2px solid var(--theme); border-bottom: 2px solid var(--theme); text-shadow: 0 2px 3px #000; }
+.face .cname { background: rgba(10, 7, 5, .9); border-top: 2px solid var(--theme); border-bottom: 2px solid var(--theme); text-shadow: 0 2px 3px #000; box-sizing: border-box; }
 .face .ctext { background: rgba(14, 10, 8, .9); border-radius: 8px; box-sizing: border-box; }
 
-/* 手牌尺寸 230×322 */
-.card .face .cname { top: 160px; height: 36px; line-height: 32px; box-sizing: border-box; }
-.card .face .ctext { left: 8px; right: 8px; top: 202px; bottom: 8px; padding: 6px 8px; }
-/* 展示區小卡 156×218 */
-.showcard .face .cname { top: 108px; height: 28px; line-height: 24px; box-sizing: border-box; }
-.showcard .face .ctext { left: 5px; right: 5px; top: 138px; bottom: 5px; padding: 4px 6px; }
+/* 特殊詞條上色（render.ts 的 richText）：攻擊類、狀態類共用；角色專屬詞用角色主題色 */
+.kw { font-weight: 700; }
+.kw-atk { color: #ff9b5e; }
+.kw-sta { color: #ff7a9a; }
+.kw-chr { color: color-mix(in srgb, var(--theme, #e0a93e) 70%, #fff); }
+.kw-card { color: #ffe08a; }
+.dis .kw { filter: brightness(1.05); }
 
 /* 卡背 */
 .back { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; background: repeating-linear-gradient(45deg, #3b2412 0 8px, #2b190b 8px 16px); }
 .back img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
 .back::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 2px var(--theme); pointer-events: none; }
+.back.rot { background: repeating-linear-gradient(-45deg, #3b2412 0 8px, #2b190b 8px 16px); }
 .pile.deck, .minipiles .mp > div:not(.dis) { border-color: var(--theme, #8b6a3a); }
+
+/* 長按放大（ui/zoom.ts）：掛在 body 上，--k＝舞台縮放比例 */
+.zoom-bg { position: fixed; inset: 0; z-index: 10000; background: rgba(0, 0, 0, .74); display: flex; align-items: center; justify-content: center; animation: zoomin .16s ease-out; font-family: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif; color: #f1ece2; user-select: none; }
+.zoom-bg .zoomcard { position: relative; top: auto; flex: none; pointer-events: none; transform: scale(calc(var(--k) * 3.05)) !important; transform-origin: 50% 50%; transition: none; box-shadow: 0 6px 18px rgba(0, 0, 0, .7), 0 0 14px rgba(255, 207, 90, .3); border-color: var(--theme, #c8963e); }
+.zoom-bg .zoom-hint { position: absolute; bottom: calc(var(--k) * 14px); left: 0; right: 0; text-align: center; font-size: calc(var(--k) * 24px); color: rgba(255, 240, 210, .6); pointer-events: none; }
+@keyframes zoomin { from { opacity: 0; } to { opacity: 1; } }
+[data-zoom] { -webkit-touch-callout: none; }

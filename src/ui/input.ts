@@ -9,6 +9,7 @@ import { renderGame, cardInner } from './render';
 import { renderLobby, readName } from './lobby';
 import { enqueue, isBusy, fastForward } from './anim';
 import { showCharSheet, showFullLog, showPile, showUnder, showMenu } from './popups';
+import { setupZoom, zoomBlocksClick } from './zoom';
 
 /** 文字訊息顯示在目前畫面合適的地方：大廳狀態列／選角狀態列／對戰中的提示 */
 function notify(t: string) {
@@ -187,9 +188,12 @@ window.addEventListener('pointermove', e => {
 }, { passive: false });
 
 window.addEventListener('pointerup', () => stopDrag(drag?.over ?? false));
+// 長按卡牌放大：放大的那一刻取消拖曳（還沒拖起來的牌不會被打出）
+setupZoom(() => stopDrag(false));
 window.addEventListener('pointercancel', () => stopDrag(false));
 
 stage.addEventListener('click', e => {
+  if (zoomBlocksClick()) return; // 剛長按放大／剛關掉放大：這一下不算點擊
   if (isBusy()) { fastForward(); return; } // 動畫播放中：點一下加速
   if (performance.now() - dragEndedAt < 300) return; // 剛拖曳完：不要又當成點擊
   const t = e.target as HTMLElement;

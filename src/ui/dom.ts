@@ -12,7 +12,6 @@ const url = (base: string) => (resolved.has(base) ? resolved.get(base) ?? MISSIN
 export const ASSET_BASE = {
   char: (id: string) => `assets/chars/${id}`,
   card: (id: string) => `assets/cards/${id}`,
-  frame: (charId: string) => `assets/frames/${charId}`,
   backOf: (charId: string) => `assets/backs/${charId}`,
   table: 'assets/bg/table',
   lobby: 'assets/bg/lobby',
@@ -26,8 +25,6 @@ export const ASSET = {
   get lobby() { return url(ASSET_BASE.lobby); },
   /** 通用卡背（角色沒有專屬卡背時使用） */
   get back() { return url(ASSET_BASE.back); },
-  /** 角色專屬卡面底框：該角色所有卡牌共用 */
-  frame: (charId: string) => url(ASSET_BASE.frame(charId)),
   /** 角色專屬卡背：該角色的牌組、對手手牌、抽牌動畫 */
   backOf: (charId: string) => url(ASSET_BASE.backOf(charId)),
 };

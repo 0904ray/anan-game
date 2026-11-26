@@ -18,7 +18,6 @@ ROOT = Path(__file__).resolve().parent.parent / 'public' / 'assets'
 MAX_SIZE = {
     'cards': (768, 512),    # 卡圖，橫式
     'chars': (640, 960),    # 角色立繪，直式
-    'frames': (512, 768),   # 卡面底框
     'backs': (512, 768),    # 卡背
     'ui': (512, 768),       # 通用卡背等
     'bg': (1920, 1280),     # 背景

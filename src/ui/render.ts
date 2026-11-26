@@ -114,26 +114,45 @@ export function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: s
 /** 角色主題色 */
 export const themeOf = (charId: string) => CHAR_DEFS[charId]?.theme ?? '#c8963e';
 
+// 卡牌文字裡的特殊詞條上色：[打擊] 這類用中括號包起來的詞、【卡名】
+//   攻擊類、狀態類是全遊戲共用的詞；其他中括號詞（財富、暴食、焰能、收買X、連擊X…）視為角色專屬詞，用角色主題色。
+//   新角色只要在卡面文字用 [詞] 標起來就會自動上色，不用改這裡。
+const KW_ATTACK = new Set(['打擊', '直擊', '直傷', '主動攻擊', '反擊']);
+const KW_STATUS = new Set(['負傷', '重創', '瀕死', '處決', '救治', '居前']);
+export function richText(text: string): string {
+  return esc(text)
+    .replace(/\[([^\]]+)\]/g, (_, w: string) => {
+      const base = w.replace(/[\s\dX、,，]+$/u, '').trim();
+      const cls = KW_ATTACK.has(base) ? 'atk' : KW_STATUS.has(base) ? 'sta' : 'chr';
+      return `<span class="kw kw-${cls}">${w}</span>`;
+    })
+    .replace(/【([^】]+)】/g, '<span class="kw kw-card">【$1】</span>');
+}
+
+/** 卡牌文字長度分級：字越多字級越小，確保整段放得進文字框 */
+function textSize(d: { text: string; discardText?: string }): string {
+  const n = d.text.length + (d.discardText?.length ?? 0);
+  return n > 70 ? 'xlong' : n > 42 ? 'long' : '';
+}
+
 /**
- * 卡面：最底層是「卡牌原本所屬角色」的專屬底框圖，上面由遊戲畫卡圖、名稱條、文字框。
- * 文字框是深色半透明底，底框圖再花也不會擋到字。
+ * 卡面：卡圖、名稱條、文字框、費用（外框用卡牌所屬角色的主題色）。
+ * 整個卡面帶 data-zoom，長按（或滑鼠右鍵）可以放大來看。
  */
 export function cardInner(defId: string, cost?: number): string {
   const d = CARD_DEFS[defId];
   const c = cost ?? d.cost;
-  const long = d.text.length + (d.discardText?.length ?? 0) > 46 ? 'long' : '';
-  return `<div class="face" style="--theme:${themeOf(d.charId)}">
-    <img class="frame" src="${ASSET.frame(d.charId)}">
+  return `<div class="face" style="--theme:${themeOf(d.charId)}" data-zoom="${defId}" data-zoom-cost="${c}">
     <div class="cost ${c < d.cost ? 'cheap' : ''}">${c}</div>
     <div class="art" style="--hue:${hue(defId)}"><span class="glyph">${esc(d.name[0])}</span><img src="${ASSET.card(defId)}"></div>
     <div class="cname">${esc(d.name)}</div>
-    <div class="ctext ${long}">${esc(d.text)}${d.discardText ? `<span class="dis"> (棄置時) ${esc(d.discardText)}</span>` : ''}</div>
+    <div class="ctext ${textSize(d)}">${richText(d.text)}${d.discardText ? `<span class="dis"> (棄置時) ${richText(d.discardText)}</span>` : ''}</div>
   </div>`;
 }
 
-/** 卡背：角色專屬卡背 → 通用卡背 → 佔位花紋（圖片缺了就自動露出下一層） */
-export function backHtml(charId: string): string {
-  return `<div class="back" style="--theme:${themeOf(charId)}"><img src="${ASSET.back}"><img src="${ASSET.backOf(charId)}"></div>`;
+/** 卡背：角色專屬卡背 → 通用卡背 → 佔位花紋（圖片缺了就自動露出下一層）。rot＝橫放（敵方牌堆） */
+export function backHtml(charId: string, rot = false): string {
+  return `<div class="back ${rot ? 'rot' : ''}" style="--theme:${themeOf(charId)}"><img src="${ASSET.back}"><img src="${ASSET.backOf(charId)}"></div>`;
 }
 
 /** 我方牌堆：牌組在上、棄牌區在下 */
@@ -153,8 +172,8 @@ export function pilesHtml(u: Unit): string {
 export function miniPilesHtml(u: Unit): string {
   const top = u.discard[u.discard.length - 1];
   return `<div class="minipiles s${u.slot}" data-piles="${u.id}">
-    <div class="mp" data-pile="deck" data-pile-unit="${u.id}"><div style="--theme:${themeOf(u.charId)}">${u.deck.length ? backHtml(u.charId) : ''}</div>牌組 ${u.deck.length}</div>
-    <div class="mp" data-pile="discard" data-pile-unit="${u.id}"><div class="dis ${top ? '' : 'empty'}" style="--hue:${top ? hue(top.defId) : 0}"></div>棄牌 ${u.discard.length}</div>
+    <div class="mp" data-pile="deck" data-pile-unit="${u.id}"><div style="--theme:${themeOf(u.charId)}">${u.deck.length ? backHtml(u.charId, true) : ''}</div>牌組 ${u.deck.length}</div>
+    <div class="mp" data-pile="discard" data-pile-unit="${u.id}"><div class="dis ${top ? '' : 'empty'}" style="--hue:${top ? hue(top.defId) : 0}">${top ? `<img src="${ASSET.card(top.defId)}">` : ''}</div>棄牌 ${u.discard.length}</div>
   </div>`;
 }
 

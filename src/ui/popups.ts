@@ -2,7 +2,7 @@
 import { CARD_DEFS, CHAR_DEFS, type Action } from '../engine';
 import { esc, stage } from './dom';
 import { view, me, rel, liveGame } from './state';
-import { cardInner } from './render';
+import { cardInner, richText, themeOf } from './render';
 
 // 頁內彈出視窗（角色說明、完整紀錄、棄牌區內容、選單）
 export function popup(inner: string) {
@@ -17,9 +17,9 @@ export function popup(inner: string) {
 export function showCharSheet(unitId: string) {
   const u = liveGame().unit(unitId);
   const c = CHAR_DEFS[u.charId];
-  popup(`<div class="charsheet">
+  popup(`<div class="charsheet" style="--theme:${themeOf(u.charId)}">
     <h3>${esc(u.name)}</h3><div class="tag">${esc(c.title)}　HP ${c.hp}｜AP ${c.ap}｜TP ${c.tp}｜AT ${c.at} × AP ${c.atkCost}</div>
-    ${c.abilities.map((a, i) => `<div class="ab"><b>${i + 1}. ${esc(a.name)}</b>${a.active ? '<span class="act">主動</span>' : ''}：${esc(a.text)}</div>`).join('')}
+    ${c.abilities.map((a, i) => `<div class="ab"><b>${i + 1}. ${esc(a.name)}</b>${a.active ? '<span class="act">主動</span>' : ''}：${richText(a.text)}</div>`).join('')}
     <div class="lore">${esc(c.lore)}</div></div>`);
 }
 export function showFullLog() {

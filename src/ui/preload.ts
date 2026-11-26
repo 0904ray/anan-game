@@ -5,7 +5,7 @@ import { ASSET_BASE, setResolvedAsset, stage } from './dom';
 /** 會用到的所有圖（從角色、卡牌登記表自動列出，新角色不用改這裡） */
 function allBases(): string[] {
   const list = [ASSET_BASE.lobby, ASSET_BASE.table, ASSET_BASE.back];
-  for (const c of Object.values(CHAR_DEFS)) list.push(ASSET_BASE.char(c.id), ASSET_BASE.frame(c.id), ASSET_BASE.backOf(c.id));
+  for (const c of Object.values(CHAR_DEFS)) list.push(ASSET_BASE.char(c.id), ASSET_BASE.backOf(c.id));
   for (const d of Object.values(CARD_DEFS)) list.push(ASSET_BASE.card(d.id));
   return [...new Set(list)];
 }

@@ -44,3 +44,4 @@
 .sel-confirm { font-size: 34px; letter-spacing: 6px; font-weight: 700; padding: 22px; }
 .sel-status { font-size: 19px; color: #9fd3ff; min-height: 26px; text-align: center; }
 .select.locked .sel-card, .select.locked .sel-slot { cursor: default; opacity: .75; }
+.sel-detail .dis { color: #b9a4ff; }
