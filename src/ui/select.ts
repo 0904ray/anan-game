@@ -42,7 +42,7 @@ export function setSelectStatus(text: string) {
 // ---------------------------------------------------------------------
 function portrait(charId: string, cls = ''): string {
   const c = CHAR_DEFS[charId];
-  return `<div class="sel-art ${cls}" style="--hue:${hue(charId)}"><span class="initial">${esc(c.name[0])}</span><img src="${ASSET.char(charId)}"></div>`;
+  return `<div class="sel-art ${cls}" style="--hue:${hue(charId)};--theme:${themeOf(charId)}"><span class="initial">${esc(c.name[0])}</span><img src="${ASSET.char(charId)}"></div>`;
 }
 
 function cardHtml(id: string): string {

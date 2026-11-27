@@ -1,6 +1,6 @@
 // 大廳畫面
 import { ASSET, esc, stage } from './dom';
-import { ONLINE_OK, myName, setMyName, setSession, setView, me } from './state';
+import { ONLINE_OK, artHidden, myName, setMyName, setSession, setView, me } from './state';
 import { VERSION } from '../config';
 
 // =====================================================================
@@ -25,7 +25,8 @@ export function renderLobby(status = '', roomCode = '') {
       ${roomCode ? `<div class="roomcode">${roomCode}</div>` : ''}
       <div class="status">${esc(status)}</div>
       ${roomCode ? `<button class="btn ghost small" data-act="lobby">取消</button>` : ''}
-    </div>`;
+    </div>
+    ${roomCode ? '' : `<button class="btn ghost small art-toggle" data-act="toggle-art">${artHidden ? '顯示 AI 圖' : '隱藏 AI 圖（改用色塊）'}</button>`}`;
 }
 
 

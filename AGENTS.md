@@ -118,7 +118,7 @@ test/
 - 固定 16:9 舞台，座標以 **1920×1080** 為準（`#stage` 會等比縮放）。版面座標寫在 `styles/board.css` 開頭的註解。
 - 任何會進 `innerHTML` 的文字都要過 `esc()`，尤其是玩家名字（來自網路）。
 - 點擊用 `data-*` 屬性，由 `ui/input.ts` 統一處理；render 函式不綁事件。
-- 圖片放在 `public/assets/`，格式是 **WebP**（`.png` 也讀得到，但會比較慢）。路徑在 `ui/dom.ts` 的 `ASSET` 一律不寫副檔名，開場時 `ui/preload.ts` 會把所有圖載好、決定實際檔案。沒有圖時畫面會自動顯示佔位色塊，不要因為缺圖而報錯。
+- 圖片放在 `public/assets/`，格式是 **WebP**（`.png` 也讀得到，但會比較慢）。路徑在 `ui/dom.ts` 的 `ASSET` 一律不寫副檔名，開場時 `ui/preload.ts` 會把所有圖載好、決定實際檔案。沒有圖時畫面會自動顯示佔位色塊，不要因為缺圖而報錯。玩家可以在大廳按「隱藏 AI 圖」把所有圖換成色塊（`state.ts` 的 `artHidden`，`ui/dom.ts` 的圖片網址會一律回傳找不到），新的圖片一律走 `ASSET`，這個開關才會生效。
 - 新圖片由專案管理（Claude）處理：用 `python scripts/optimize_images.py` 把生圖 AI 的 PNG 縮成實際需要的大小再轉 WebP（卡圖 768×512、立繪 640×960、卡背 512×768）。不要把原尺寸 PNG 直接放進 `public/assets/`。
 - 卡面一律用 `render.ts` 的 `cardInner()`、卡背一律用 `backHtml()`，不要自己拼卡片 HTML。卡面整張由遊戲畫（卡圖＋名稱條＋文字框，外框用角色主題色），沒有底框圖。
 - 卡牌、能力文字裡的特殊詞條用 `[詞]` 包起來（例如 `[打擊]`、`[收買2]`），畫面會用 `richText()` 自動上色、有說明的加底線；和詞條同名但沒加括號的詞也認得。顏色分類和說明都在 `engine/keywords.ts`（共用）和 `CharDef.keywords`（角色專屬）；卡名用 `【】`。新角色的新詞不用改畫面程式。

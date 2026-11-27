@@ -10,7 +10,7 @@
 .sel-card { position: relative; height: 330px; border-radius: 16px; border: 3px solid #6b5230; background: #1e1711; color: #f1ece2; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: stretch; padding: 0; overflow: hidden; text-align: center; transition: transform .15s, border-color .15s, box-shadow .15s; }
 .sel-card:hover, .sel-card.focus { transform: translateY(-6px); border-color: #c8963e; box-shadow: 0 14px 28px rgba(0, 0, 0, .6); }
 .sel-card.picked { border-color: #ffcf5a; box-shadow: 0 0 0 3px #ffcf5a, 0 0 26px rgba(255, 207, 90, .5); }
-.sel-art { position: relative; height: 210px; flex: none; background: linear-gradient(160deg, hsl(var(--hue), 45%, 35%), hsl(var(--hue), 50%, 12%)); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.sel-art { position: relative; height: 210px; flex: none; background: linear-gradient(160deg, color-mix(in srgb, var(--theme, hsl(var(--hue), 45%, 35%)) 72%, #000), color-mix(in srgb, var(--theme, hsl(var(--hue), 45%, 35%)) 22%, #000)); display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .sel-art .initial { font-size: 96px; font-weight: 900; color: rgba(255, 240, 210, .25); }
 .sel-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; }
 .sel-art.mini { width: 96px; height: 128px; border-radius: 10px; border: 2px solid #c8963e; flex: none; }

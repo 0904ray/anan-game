@@ -3,7 +3,7 @@ import { randomTeam, isValidTeam, type GameState, type PlayerIdx, type Action, t
 import { ALLOW_SAME_CHAR_IN_TEAM, DEFAULT_TEAMS } from '../config';
 import { LocalSession, HostSession, GuestSession, randomRoomCode, type SessionEvents } from '../net/session';
 import { stage, toast } from './dom';
-import { view, me, ui, session, myName, hoverDef, setSession, setView, setLastPlayed, setHoverDef, liveGame } from './state';
+import { view, me, ui, session, myName, hoverDef, setSession, setView, setLastPlayed, setHoverDef, liveGame, artHidden, setArtHidden } from './state';
 import { showSelect, closeSelect, isSelecting, setSelectStatus, handleSelectClick, handleSelectHover } from './select';
 import { renderGame, cardInner } from './render';
 import { renderLobby, readName } from './lobby';
@@ -217,6 +217,7 @@ stage.addEventListener('click', e => {
       else session?.reselect();
     }
     else if (k === 'lobby') { closeSelect(); setLastPlayed(null); renderLobby(); }
+    else if (k === 'toggle-art') { setArtHidden(!artHidden); renderLobby(); }
     else if (k === 'menu') showMenu();
     else if (k === 'fulllog') showFullLog();
     else if (k === 'close-popup') stage.querySelector('.popup-bg')?.remove();

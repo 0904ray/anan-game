@@ -21,10 +21,10 @@
 .kw-def { text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, currentColor 65%, transparent); }
 
 /* 卡背 */
-.back { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; background: repeating-linear-gradient(45deg, #3b2412 0 8px, #2b190b 8px 16px); }
+.back { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--theme, #3b2412) 45%, #2b190b) 0 8px, #1f140a 8px 16px); } /* 沒有圖（或隱藏 AI 圖）時：用角色主題色的斜紋 */
 .back img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
 .back::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 2px var(--theme); pointer-events: none; }
-.back.rot { background: repeating-linear-gradient(-45deg, #3b2412 0 8px, #2b190b 8px 16px); }
+.back.rot { background: repeating-linear-gradient(-45deg, color-mix(in srgb, var(--theme, #3b2412) 45%, #2b190b) 0 8px, #1f140a 8px 16px); }
 .pile.deck, .minipiles .mp > div:not(.dis) { border-color: var(--theme, #8b6a3a); }
 
 /* 長按放大（ui/zoom.ts）：掛在 body 上，--k＝舞台縮放比例；左邊詞條說明、右邊放大的卡 */

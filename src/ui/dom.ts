@@ -1,13 +1,15 @@
 // 畫面共用：舞台元素、圖片路徑、小工具
+import { artHidden } from './state';
 
 /**
  * 圖片路徑一律寫「不含副檔名」的基本路徑；實際檔案（.webp 優先、其次 .png）由 ui/preload.ts 在開場時找好。
  * 找不到的圖回傳一個一定載入失敗的網址，畫面會自動露出佔位圖。
+ * 玩家選了「隱藏 AI 圖」時，所有圖都當成找不到，一律顯示佔位色塊。
  */
 const resolved = new Map<string, string | null>();
 const MISSING = 'data:,';
 export function setResolvedAsset(base: string, url: string | null) { resolved.set(base, url); }
-const url = (base: string) => (resolved.has(base) ? resolved.get(base) ?? MISSING : `${base}.webp`);
+const url = (base: string) => (artHidden ? MISSING : resolved.has(base) ? resolved.get(base) ?? MISSING : `${base}.webp`);
 
 export const ASSET_BASE = {
   char: (id: string) => `assets/chars/${id}`,

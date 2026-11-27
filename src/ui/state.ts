@@ -13,6 +13,9 @@ export let lastPlayed: { defId: string; by: string; side: PlayerIdx } | null = n
 export let hoverDef: string | null = null;
 export let myName = '玩家';
 try { myName = localStorage.getItem('cg-name') || '玩家'; } catch { /* 預覽環境可能不能用 localStorage */ }
+/** 隱藏所有 AI 圖（立繪、卡圖、卡背、背景），改顯示佔位色塊；大廳的按鈕切換，會記住 */
+export let artHidden = false;
+try { artHidden = localStorage.getItem('cg-hide-art') === '1'; } catch { /* 同上 */ }
 
 /** 只屬於這個畫面的操作狀態 */
 export const ui = {
@@ -34,3 +37,4 @@ export function setMyName(n: string) { myName = n; }
 export function rel(p: PlayerIdx) { return p === me ? 'me' : 'op'; }
 /** 用目前畫面的資料建一個 Game，拿來判斷操作是否合法、算數值 */
 export function liveGame(): Game { return new Game(view!); }
+export function setArtHidden(v: boolean) { artHidden = v; try { localStorage.setItem('cg-hide-art', v ? '1' : '0'); } catch { /* 同上 */ } }

@@ -106,7 +106,7 @@ export function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: s
   const hpPct = Math.max(0, u.hp / u.maxHp * 100);
   return `
   <div class="${cls}" data-unit="${u.id}">
-    <div class="portrait tilt" data-unit-click="${u.id}" style="--hue:${hue(u.charId)};${artToneOf(u.charId)}">
+    <div class="portrait tilt" data-unit-click="${u.id}" style="--hue:${hue(u.charId)};--theme:${themeOf(u.charId)};${artToneOf(u.charId)}">
       <div class="art"><span class="initial">${esc(CHAR_DEFS[u.charId].name[0])}</span><img src="${portraitOf(u)}"></div>
       <div class="badges">${badges(g, u)}</div>
       <div class="nameplate">${esc(u.name)}</div>

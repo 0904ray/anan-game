@@ -16,3 +16,5 @@
 .loading .bar { width: 760px; height: 18px; border-radius: 9px; background: rgba(255, 255, 255, .08); border: 1px solid #6b5230; overflow: hidden; }
 .loading .bar .fill { height: 100%; width: 0; background: linear-gradient(90deg, #8a5a1c, #f3d48a); transition: width .15s; }
 .loading .txt { font-size: 24px; color: #bba98a; letter-spacing: 2px; }
+/* 隱藏／顯示 AI 圖的切換按鈕（右下角） */
+.art-toggle { position: absolute; right: 48px; bottom: 40px; }
