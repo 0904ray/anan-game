@@ -8,4 +8,4 @@ export const PEER_ID_PREFIX = 'lenglun-card-';
 /** 電腦每一步之間的延遲（毫秒） */
 export const BOT_DELAY_MS = 650;
 /** 版本字樣（大廳顯示） */
-export const VERSION = '測試版 v0.12';
+export const VERSION = '測試版 v0.13';
