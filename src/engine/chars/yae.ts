@@ -205,6 +205,7 @@ const yae: CharDef = {
   name: '八重',
   title: '攻擊移除牌、攻擊附帶額外效果、海扁',
   theme: '#d0782f',
+  artTone: 'brightness(1.14) contrast(1.06) saturate(1.05)', // 畫風偏暗紅，在暗色牌桌上會糊在一起：略提亮
   lore: '古代泰坦的後裔，體內流著巨人的血，背著刀、槌、弓、太刀、斧五把祖傳兵器四處征戰。每一次揮擊都會喚醒下一把兵器沉睡的力量——拔出的是兵器，打破的是極限。',
   hp: 45, ap: 8, tp: 7, at: 3, atkCost: 3, sp: 0,
   counters: [
