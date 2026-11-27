@@ -233,13 +233,13 @@ export function bandHtml(st: GameState, g: Game, myPrompt: Prompt | null, myTurn
   let sub = '';
   let btns = '';
   if (st.winner !== null && !ro) { main = '對戰結束'; }
-  else if (myPrompt?.kind === 'unit') { label = '請選擇'; main = esc(myPrompt.title); sub = '點選發光的角色'; }
+  else if (myPrompt?.kind === 'unit') { label = '請選擇'; main = richText(myPrompt.title); sub = '點選發光的角色'; }
   else if (myPrompt?.kind === 'cards') {
     const ok = ui.selected.size >= myPrompt.min && ui.selected.size <= myPrompt.max;
-    label = '請選擇手牌'; main = esc(myPrompt.title);
+    label = '請選擇手牌'; main = richText(myPrompt.title);
     sub = `已選 ${ui.selected.size}${myPrompt.min === myPrompt.max ? ` / ${myPrompt.max}` : `（${myPrompt.min}～${myPrompt.max} 張）`}`;
     btns = `<button class="btn small" data-answer-cards ${ok ? '' : 'disabled'}>確定</button>`;
-  } else if (myPrompt) { label = '請選擇'; main = esc(myPrompt.title); }
+  } else if (myPrompt) { label = '請選擇'; main = richText(myPrompt.title); }
   else if (st.prompt && !ro) { main = `等待 ${esc(st.players[st.prompt.player].name)} 做選擇…`; mainCls = 'op'; }
   else if (myTurn && ui.picked) {
     const c = g.unit(ui.picked.unitId).hand.find(x => x.uid === ui.picked!.uid)!;
@@ -287,7 +287,7 @@ export function modalHtml(p: Prompt): string {
       <div class="numval" id="numval">${p.label} ${ui.numberVal}</div>
       <div class="row2"><button class="btn" data-answer-number>確定</button></div>`;
   }
-  return `<div class="modal-bg"><div class="modal"><h2>${esc(p.title)}</h2>${body}</div></div>`;
+  return `<div class="modal-bg"><div class="modal"><h2>${richText(p.title)}</h2>${body}</div></div>`;
 }
 
 export function gameOverHtml(st: GameState): string {
