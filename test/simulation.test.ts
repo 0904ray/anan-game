@@ -10,6 +10,7 @@ const MIA: Team = ['mia', 'savanna'];
 const LIL: Team = ['liliante', 'savanna'];
 const HER: Team = ['heretic', 'savanna'];
 const YAE: Team = ['yae', 'savanna'];
+const HUME: Team = ['hume', 'savanna'];
 
 describe('隨機對打（壓力測試）', () => {
   it('兩隻薩凡娜對打 1000 場', () => {
@@ -45,6 +46,15 @@ describe('隨機對打（壓力測試）', () => {
   it('八重＋薩凡娜 對打 1000 場（[拔]翻牌、每 3 次攻擊[破]）', () => {
     // 八重 17 張＋薩凡娜 17 張
     const w = simulate([YAE, MIX], 1000, () => 34);
+    expect(w[0] + w[1]).toBeGreaterThan(950);
+  });
+  it('休姆＋薩凡娜 對打 1000 場（TP 沒有上限、[瀕死]徘徊、[反擊]）', () => {
+    // 休姆 17 張＋薩凡娜 17 張
+    const w = simulate([HUME, MIX], 1000, () => 34);
+    expect(w[0] + w[1]).toBeGreaterThan(950);
+  });
+  it('休姆＋薩凡娜 對手是八重＋薩凡娜 1000 場（八重有直接[處決]，休姆會擋）', () => {
+    const w = simulate([HUME, YAE], 1000, () => 34);
     expect(w[0] + w[1]).toBeGreaterThan(950);
   });
 });

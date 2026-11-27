@@ -53,12 +53,12 @@ const cards: CardDef[] = [
       const pick = yield* g.chooseHandCards(u, '軍火交易：選 1 張牌棄置', 1, 1);
       yield* g.discardCards(u, pick);
       const t = yield* g.chooseEnemy(u, '軍火交易：選擇打擊目標');
-      if (t) { g.log(`${u.name} 打擊 ${t.name}`, u.owner); g.strikeOnce(u, t); }
+      if (t) { yield* g.declareAttackTarget(u, t); g.log(`${u.name} 打擊 ${t.name}`, u.owner); g.strikeOnce(u, t); }
     },
     *onDiscard(g, u) {
       if (yield* buy(g, u, 2, '軍火交易(棄置時)：打擊 1 名單位 2 次')) {
         const t = yield* g.chooseEnemy(u, '軍火交易(棄置時)：選擇打擊目標');
-        if (t) { g.log(`${u.name} 打擊 ${t.name} 2 次`, u.owner); g.strike(u, t, 2); }
+        if (t) { yield* g.declareAttackTarget(u, t); g.log(`${u.name} 打擊 ${t.name} 2 次`, u.owner); g.strike(u, t, 2); }
       }
     },
   },
@@ -105,7 +105,7 @@ const cards: CardDef[] = [
       if (pick.length) g.heal(u, pick.length);
       if (yield* buy(g, u, 4, '火神集團：打擊 1 名單位 3 次')) {
         const t = yield* g.chooseEnemy(u, '火神集團：選擇打擊目標');
-        if (t) { g.log(`${u.name} 打擊 ${t.name} 3 次`, u.owner); g.strike(u, t, 3); }
+        if (t) { yield* g.declareAttackTarget(u, t); g.log(`${u.name} 打擊 ${t.name} 3 次`, u.owner); g.strike(u, t, 3); }
       }
     },
   },

@@ -62,6 +62,16 @@ export interface Unit {
 }
 
 /**
+ * 延後觸發：先排進佇列，等目前這個操作（出牌、攻擊、能力、反擊）結算完，
+ * 再一次結算（可以要求玩家選擇）。觸發者可能不是目前回合的玩家（例如在對方回合進入[瀕死]）。
+ */
+export interface DeferTrigger {
+  kind: string;
+  by: string;                                   // 觸發者的單位 id（Prompt 的 player 就是他的擁有者）
+  data?: Record<string, string | number>;
+}
+
+/**
  * 一次「攻擊」的設定：普攻和攻擊牌（有 CardDef.tag 的牌）都各算 1 次攻擊。
  * 角色的 hooks.onAttackStart 在傷害前修正它，hooks.onAttackEnd 在傷害後追加效果。
  * 只活在結算過程中，不會進 GameState。
@@ -149,6 +159,7 @@ export interface GameState {
   fxSeq: number;
   gameId: string;          // 每局不同，用來判斷是不是同一局
   endOfTurn: { kind: string; by: string }[];
+  triggers: DeferTrigger[];   // 延後觸發佇列（目前的操作結算完就依序結算）
   uidCounter: number;
 }
 

@@ -78,7 +78,7 @@ const cards: CardDef[] = [
     *play(g, u) {
       g.strikeSelf(u, 2);
       const t = yield* g.chooseEnemy(u, '不夠! 不夠!!：選 1 名要[打擊]的敵方單位');
-      if (t) g.strikeOnce(u, t);
+      if (t) { yield* g.declareAttackTarget(u, t); g.strikeOnce(u, t); }
       g.draw(u, 2);
     },
   },
@@ -121,6 +121,7 @@ const cards: CardDef[] = [
       const lost = Math.max(0, g.effTpMax(u) - u.tp);
       const t = yield* g.chooseUnit(u.owner, '承此亦死：無條件指定 1 名敵方單位', g.enemiesOf(u.owner));
       if (!t) return;
+      yield* g.declareAttackTarget(u, t);
       g.log(`${u.name} 承此亦死：打擊 ${t.name}`, u.owner);
       g.strikeOnce(u, t);
       if (lost) {
