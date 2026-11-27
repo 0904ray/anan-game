@@ -67,5 +67,5 @@ export function showSettings() {
   popup(`<h2>設定</h2>${volumeHtml()}<div class="hint2">第一次點畫面之後才會開始播音樂（瀏覽器的規定）</div>`);
 }
 export function showMenu() {
-  popup(`<h2>選單</h2>${volumeHtml()}<div class="row2"><button class="btn" data-act="lobby">離開對戰，回到大廳</button></div>`);
+  popup(`<h2>離開這場對戰，回到大廳？</h2><div class="row2"><button class="btn" data-act="lobby">回到大廳</button></div>`);
 }

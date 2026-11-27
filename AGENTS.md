@@ -130,7 +130,7 @@ test/
 
 - 音檔放 `public/audio/`（mp3，手機都能播）：`bgm.mp3` 循環播放的背景音樂；`card.mp3` 出牌、抽牌、洗牌、棄牌；`hit.mp3` 攻擊命中。
 - 播放程式在 `ui/audio.ts`：`playSfx('card' | 'hit')`。音效掛在 `ui/anim.ts` 的 `playEvent`，新機制有新的動畫時順便決定要不要出聲。新增音效：檔案放進 `public/audio/`、在 `SFX_FILES` 登記。
-- 音量：`state.ts` 的 `musicVol`／`sfxVol`（會記住），大廳的「⚙ 設定」和對戰中的「選單」都能調。音量一律走 Web Audio 的 GainNode（iPhone 不能改 `<audio>.volume`）。
+- 音量：`state.ts` 的 `musicVol`／`sfxVol`（會記住），大廳右上角和對戰中（結束回合按鈕下方）的「⚙ 設定」都能調。音量一律走 Web Audio 的 GainNode（iPhone 不能改 `<audio>.volume`）。
 - 瀏覽器規定玩家點過畫面才能出聲，所以第一次點擊才開始播；切到背景時音樂會暫停。
 - 新音檔由專案管理（Claude）處理：剪掉 BGM 頭尾靜音（循環才不會斷）、轉成 mp3（BGM 128k 立體聲，音效 96k 單聲道）。
 

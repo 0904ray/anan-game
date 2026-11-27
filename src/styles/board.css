@@ -141,6 +141,8 @@
 .band .turn .who { font-weight: 700; }
 .band .turn .who.me { color: #ffd56e; }
 .band .turn .who.op { color: #ff8f7a; }
+.band .turnbtns { display: flex; gap: 10px; }
+.band .turnbtns .btn { flex: 1; font-size: 22px; padding: 10px 12px; white-space: nowrap; }
 .endturn { height: 116px; font-size: 34px; letter-spacing: 8px; font-weight: 700; }
 .endturn.glow { animation: pulse 1.4s infinite; }
 @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 rgba(255, 200, 90, 0); } 50% { box-shadow: 0 0 26px rgba(255, 200, 90, .7); } }

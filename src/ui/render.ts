@@ -54,7 +54,10 @@ export function renderGame(anim?: AnimCtx) {
   html += `</div><div class="fxlayer"></div>`;
   if (!ro && myPrompt && (myPrompt.kind === 'confirm' || myPrompt.kind === 'option' || myPrompt.kind === 'number')) html += modalHtml(myPrompt);
   if (!ro && st.winner !== null) html += gameOverHtml(st);
+  // 開著的頁內視窗（設定、角色說明…）在重畫時保留，不然動畫一播完就被清掉
+  const keep = stage.querySelector('.popup-bg');
   stage.innerHTML = html;
+  if (keep) stage.appendChild(keep);
 }
 
 export function badges(g: Game, u: Unit): string {
@@ -292,7 +295,7 @@ export function bandHtml(st: GameState, g: Game, myPrompt: Prompt | null, myTurn
     <div class="turn">
       <div class="t1"><span>第 ${st.turn} 回合</span><span class="who ${rel(st.active)}">${st.active === me ? '你的回合' : esc(st.players[st.active].name)}</span></div>
       <button class="btn endturn ${myTurn && !hasOtherActions(g) ? 'glow' : ''}" data-end ${myTurn ? '' : 'disabled'}>結束回合</button>
-      <button class="btn ghost small" data-act="menu">選單</button>
+      <div class="turnbtns"><button class="btn ghost" data-act="settings">⚙ 設定</button><button class="btn ghost" data-act="menu">選單</button></div>
     </div>
   </div>`;
 }

@@ -210,6 +210,11 @@ stage.addEventListener('change', e => { if ((e.target as HTMLElement).dataset?.v
 
 stage.addEventListener('click', e => {
   if (zoomBlocksClick()) return; // 剛長按放大／剛關掉放大：這一下不算點擊
+  // 設定、關閉視窗、拖音量滑桿不影響對局：動畫播放中也能用
+  const pre = (e.target as HTMLElement).closest('[data-act], .popup-bg .modal') as HTMLElement | null;
+  if (pre?.dataset.act === 'settings') { showSettings(); return; }
+  if (pre?.dataset.act === 'close-popup') { stage.querySelector('.popup-bg')?.remove(); return; }
+  if (isBusy() && pre?.matches('.popup-bg .modal')) return; // 點在視窗裡（例如滑桿）：不要當成加速
   if (isBusy()) { fastForward(); return; } // 動畫播放中：點一下加速
   if (performance.now() - dragEndedAt < 300) return; // 剛拖曳完：不要又當成點擊
   const t = e.target as HTMLElement;
