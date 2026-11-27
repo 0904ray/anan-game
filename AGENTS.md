@@ -74,6 +74,7 @@ test/
 1. **狀態是純資料**：`GameState` 要能 `JSON.stringify` 後傳給對手。不要在裡面放函式、class、Map。
 2. **效果是 generator**：卡牌和能力的 `play` / `use` / `onDiscard` 是 `function*`。
    需要玩家選擇時 `yield` 一個 `Prompt`（用 `g.chooseEnemy`、`g.chooseAlly`、`g.chooseUnit`、`g.chooseHandCards`、`g.confirm`、`g.option`），拿到答案再繼續。
+   要從我方好幾副手牌選牌時，用 `g.chooseCardsFrom([單位…], …)`：能選的牌一起高亮、可以混著選，**不要先問「選誰的手牌」**（專案擁有者的要求）；選完用 `g.cardOwner(uid)` 找牌是誰的。
 3. **亂數只用 `g.rand()` / `g.shuffle()`**，同一個種子要能重現同一局。
 4. **畫面看得到的變化都要發事件**：抽牌、棄牌、傷害等核心函式已經會發。
    如果新機制讓牌或數值用新的方式移動，呼叫 `g.fx({...})`，並在 `ui/anim.ts` 的 `playEvent` 加對應動畫。每個事件都會自動帶當下的數值快照。

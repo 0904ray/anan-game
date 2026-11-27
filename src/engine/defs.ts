@@ -95,7 +95,8 @@ export interface CharDef {
     /** 主動攻擊要花多少 AP（沒寫就是 u.atkCost） */
     attackApCost?(g: Game, u: Unit): number;
     /** 主動攻擊的其他限制（例如專屬資源不足就不能攻擊） */
-    canAttack?(g: Game, u: Unit): boolean;
+    /** 現在能不能主動攻擊；回傳字串＝不能，並把字串當成提示（例如「打出[異方侵入]前不能主動攻擊」） */
+    canAttack?(g: Game, u: Unit): boolean | string;
     /** 主動攻擊成立、扣完費用之後（用來扣專屬資源或觸發「首次攻擊」效果） */
     onAttack?(g: Game, u: Unit): void;
     /** 主動攻擊時那一次[打擊]的設定（例如改成[直擊]、或用指定數值取代 AT） */

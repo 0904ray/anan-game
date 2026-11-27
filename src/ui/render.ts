@@ -211,7 +211,7 @@ export function handHtml(g: Game, u: Unit, myPrompt: Prompt | null, myTurn: bool
   const step = n > 1 ? Math.min(CW + 12, (W - CW) / (n - 1)) : 0;
   const total = step * (n - 1) + CW;
   const start = (W - total) / 2;
-  const selecting = myPrompt?.kind === 'cards' && myPrompt.unitId === u.id;
+  const selecting = myPrompt?.kind === 'cards'; // 能選的牌可能分散在我方兩副手牌，直接看 cardUids
   let html = `<div class="hand s${u.slot}" data-hand="${u.id}"><div class="label">${esc(u.name)} 的手牌 ${n}</div>`;
   u.hand.forEach((c: CardInst, i: number) => {
     const mid = (n - 1) / 2;

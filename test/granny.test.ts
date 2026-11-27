@@ -131,7 +131,7 @@ describe('葛蘭妮', () => {
 });
 
 describe('盤中餐從隊友手牌吞噬', () => {
-  it('先選角色，再選那個角色的手牌', () => {
+  it('兩邊手牌一起高亮，直接選隊友的牌', () => {
     const g = newGame();
     const [sav, gr] = g.state.players[0].units;
     gr.ap = 3; gr.counters.gluttony = 1;
@@ -139,9 +139,11 @@ describe('盤中餐從隊友手牌吞噬', () => {
     const target = sav.hand[0].uid;
     const savBefore = sav.hand.length;
     g.apply(0, { type: 'play', unitId: gr.id, cardUid: meal });
-    expect(g.state.prompt?.kind).toBe('unit');
-    ans(g, sav.id);
     expect(g.state.prompt?.kind).toBe('cards');
+    // 我方兩副手牌都能選（不用先選角色）
+    const p = g.state.prompt as { cardUids: string[] };
+    expect(p.cardUids).toContain(target);
+    expect(p.cardUids.some(uid => gr.hand.some(c => c.uid === uid))).toBe(true);
     ans(g, [target]);
     expect(gr.under.map(c => c.uid)).toEqual([target]);
     expect(sav.hand.length).toBe(savBefore - 1);

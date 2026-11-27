@@ -57,7 +57,7 @@ describe('異端物', () => {
     const g = fresh();
     const h = g.unit(H);
     stack(g, H, 'her_tear', 2);
-    expect(g.checkAction(0, { type: 'attack', unitId: H })).toBe('沒有足夠的攻擊資源');
+    expect(g.checkAction(0, { type: 'attack', unitId: H })).toBe('打出[異方侵入]前不能主動攻擊');
     g.addCounter(h, 'mode', 1);
     g.addCounter(h, 'intrude', 1);
     expect(g.checkAction(0, { type: 'attack', unitId: H })).toBeNull();
@@ -118,13 +118,16 @@ describe('異端物', () => {
     const g = fresh();
     const h = g.unit(H);
     give(g, H, 'her_verdict');
-    stack(g, H, 'her_tear', 5);
-    stack(g, M, 'her_intrude', 6);
+    const own = stack(g, H, 'her_tear', 6);
+    const theirs = stack(g, M, 'her_intrude', 7);
     g.apply(0, { type: 'endTurn' });
     g.apply(1, { type: 'endTurn' });
-    // 我方回合開始：直接打出，先問要從誰的手牌付
-    expect(g.state.prompt?.kind).toBe('option');
-    answer(g, 1); // 隊友先付 6 張，剩下 5 張由自己付
+    // 我方回合開始：直接打出，兩副手牌一起高亮讓玩家選（不先問選誰的）
+    expect(g.state.prompt?.kind).toBe('cards');
+    const p = g.state.prompt as { cardUids: string[]; min: number };
+    expect(p.min).toBe(11);
+    expect(p.cardUids).toEqual(expect.arrayContaining([...own, ...theirs]));
+    answer(g, [...own.slice(0, 4), ...theirs]); // 自己 4 張＋隊友 7 張 → 多來自隊友
     expect(g.counter(h, 'beyond')).toBe(1);
     // [超越此方]當回合就生效：隊友的[起手抽牌]改成檢索，接著問要檢索哪張
     expect(g.state.prompt?.kind).toBe('option');
@@ -139,11 +142,12 @@ describe('異端物', () => {
     const h = g.unit(H);
     const mate = g.unit(M);
     const play = give(g, H, 'her_verdict');
-    stack(g, H, 'her_tear', 5);
-    stack(g, M, 'her_intrude', 6);
-    // 先選由隊友支付 6 張，剩下的 5 張由自己付
+    const own = stack(g, H, 'her_tear', 6);
+    const theirs = stack(g, M, 'her_intrude', 7);
+    // 兩副手牌混著選：自己 4 張＋隊友 7 張
     g.apply(0, { type: 'play', unitId: H, cardUid: play });
-    answer(g, 1); // 隊友
+    expect(g.state.prompt?.kind).toBe('cards');
+    answer(g, [...own.slice(0, 4), ...theirs]);
     expect(g.counter(h, 'beyond')).toBe(1);
     expect(h.maxHp).toBe(20);
     expect(h.hpLink).toBe(M);

@@ -20,12 +20,12 @@ function devour(g: Game, gran: Unit, card: CardInst, from: Unit, src: 'hand' | '
 /** 我方有手牌的角色（吞噬來源） */
 const handOwners = (g: Game, u: Unit) => g.state.players[u.owner].units.filter(x => x.life !== 'dead' && x.hand.length > 0);
 
-/** 從我方任一角色的手牌選 1 張吞噬：先選角色，再選牌 */
+/** 從我方任一角色的手牌選 1 張吞噬：兩邊的手牌一起高亮，直接選 */
 function* devourFromHand(g: Game, u: Unit, title: string): Eff<boolean> {
-  const from = yield* g.chooseUnit(u.owner, `${title}：先選要從誰的手牌吞`, handOwners(g, u));
-  if (!from) return false;
-  const pick = yield* g.chooseHandCards(from, `${title}：選 ${from.name} 的 1 張手牌`, 1, 1);
+  const pick = yield* g.chooseCardsFrom(handOwners(g, u), `${title}：選我方任一角色的 1 張手牌`, 1, 1);
   if (!pick.length) return false;
+  const from = g.cardOwner(pick[0]);
+  if (!from) return false;
   const i = from.hand.findIndex(c => c.uid === pick[0]);
   devour(g, u, from.hand.splice(i, 1)[0], from, 'hand');
   return true;

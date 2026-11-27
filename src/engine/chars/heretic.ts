@@ -166,7 +166,7 @@ const heretic: CharDef = {
   ],
   hooks: {
     /** 能力 4：打出[異方侵入]前不能主動攻擊 */
-    canAttack: (g, u) => g.counter(u, INTRUDE) > 0,
+    canAttack: (g, u) => g.counter(u, INTRUDE) > 0 || '打出[異方侵入]前不能主動攻擊',
     attackApCost: () => 0,
     /** 能力 2：掃場——移除自身所有手牌，對敵方全場造成同等張數的[直傷]，然後停止行動 */
     *attack(g, u) {

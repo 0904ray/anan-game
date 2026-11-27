@@ -256,7 +256,9 @@ export class Game {
       case 'attack': {
         const h = CHAR_DEFS[u.charId].hooks;
         if (CHAR_DEFS[u.charId].noAttack) return '這個角色不能主動攻擊';
-        if (h?.canAttack && !h.canAttack(this, u)) return '沒有足夠的攻擊資源';
+        const can = h?.canAttack?.(this, u);
+        if (can === false) return '沒有足夠的攻擊資源';
+        if (typeof can === 'string') return can;
         if (u.attacksThisTurn >= (h?.attackLimit?.(this, u) ?? 1)) return '這回合已經主動攻擊過了';
         if (u.ap < (h?.attackApCost?.(this, u) ?? u.atkCost)) return 'AP 不足';
         if (!h?.attack && !this.attackTargets(u).length) return '沒有可攻擊的目標';
@@ -529,36 +531,18 @@ export class Game {
   }
 
   /**
-   * 支付手牌費用（異端物）：從自己或活著的隊友的手牌[移除]等同費用的牌。
-   * 兩邊都有牌時先問要從誰付，再一次選牌；回傳每個單位各付了幾張。
+   * 支付手牌費用（異端物）：從自己和活著的隊友的手牌裡一起選，移除等同費用的牌（可以混著選）。
+   * 回傳每個單位各付了幾張。
    */
   private *payHandCost(u: Unit, n: number): Eff<HandPaid[]> {
+    const mate = this.teammate(u);
+    const payers = [u, mate].filter(x => x.life === 'alive');
+    const picks = yield* this.chooseCardsFrom(payers, `支付 ${n} HS：選 ${n} 張手牌移除（自己和隊友的都可以）`, n, n);
     const out: HandPaid[] = [];
-    let left = n;
-    while (left > 0) {
-      const mate = this.teammate(u);
-      const pool = [u, mate].filter(x => x.life === 'alive' && x.hand.length > 0);
-      if (!pool.length) break;
-      let payer = pool[0];
-      if (pool.length > 1) {
-        const pick: number = yield {
-          kind: 'option', player: u.owner, title: `支付 ${left} HS：要從誰的手牌移除？`,
-          options: pool.map(x => `${x.name}（手牌 ${x.hand.length}）`),
-        };
-        payer = pool[pick];
-      }
-      const other = payer === u ? mate : u;
-      const otherAvail = other.life === 'alive' ? other.hand.length : 0;
-      const max = Math.min(left, payer.hand.length);
-      const min = Math.min(max, Math.max(1, left - otherAvail));
-      const picks = yield* this.chooseHandCards(payer, `支付 ${left} HS：選 ${payer.name} 的 ${min === max ? min : `${min}～${max}`} 張手牌移除`, min, max);
-      if (!picks.length) break;
-      const k = this.millHand(payer, picks);
-      if (k <= 0) break;
-      left -= k;
-      const rec = out.find(x => x.unitId === payer.id);
-      if (rec) rec.n += k;
-      else out.push({ unitId: payer.id, n: k });
+    for (const p of payers) {
+      const mine = picks.filter(uid => p.hand.some(c => c.uid === uid));
+      const k = this.millHand(p, mine);
+      if (k) out.push({ unitId: p.id, n: k });
     }
     this.handRemoved(u, out);
     return out;
@@ -910,12 +894,24 @@ export class Game {
   }
 
   *chooseHandCards(u: Unit, title: string, min: number, max: number): Eff<string[]> {
-    const n = u.hand.length;
+    return yield* this.chooseCardsFrom([u], title, min, max);
+  }
+  /**
+   * 從我方好幾個單位的手牌一起選牌（畫面把能選的牌全部高亮，可以混著選，不用先問「選誰的」）。
+   * 能選的牌剛好等於要選的張數時直接全選，不問。回傳選到的 uid；用 g.cardOwner() 找每張牌是誰的。
+   */
+  *chooseCardsFrom(units: Unit[], title: string, min: number, max: number): Eff<string[]> {
+    const uids = units.filter(x => x.life !== 'dead').flatMap(x => x.hand.map(c => c.uid));
+    const n = uids.length;
     min = Math.min(min, n);
     max = Math.min(max, n);
     if (max === 0) return [];
-    if (min === max && max === n) return u.hand.map(c => c.uid);
-    return yield { kind: 'cards', player: u.owner, title, unitId: u.id, cardUids: u.hand.map(c => c.uid), min, max };
+    if (min === max && max === n) return uids;
+    return yield { kind: 'cards', player: units[0].owner, title, cardUids: uids, min, max };
+  }
+  /** 手牌裡這張牌是誰的（找不到回傳 null） */
+  cardOwner(uid: string): Unit | null {
+    return this.allUnits().find(x => x.hand.some(c => c.uid === uid)) ?? null;
   }
   *confirm(player: PlayerIdx, title: string, yes = '是', no = '否'): Eff<boolean> {
     return yield { kind: 'confirm', player, title, yes, no };

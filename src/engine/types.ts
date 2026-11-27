@@ -72,7 +72,8 @@ export interface PlayerState {
 // ===== 等待玩家做選擇 =====
 export type Prompt =
   | { kind: 'unit'; player: PlayerIdx; title: string; unitIds: string[] }
-  | { kind: 'cards'; player: PlayerIdx; title: string; unitId: string; cardUids: string[]; min: number; max: number }
+  /** 選手牌：cardUids 可以跨我方多個單位的手牌（畫面直接把能選的牌高亮，混著選） */
+  | { kind: 'cards'; player: PlayerIdx; title: string; cardUids: string[]; min: number; max: number }
   | { kind: 'confirm'; player: PlayerIdx; title: string; yes: string; no: string }
   | { kind: 'option'; player: PlayerIdx; title: string; options: string[] }
   | { kind: 'number'; player: PlayerIdx; title: string; min: number; max: number; label: string };
