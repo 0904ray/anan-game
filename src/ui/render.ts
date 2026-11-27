@@ -86,14 +86,14 @@ export function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: s
   const counters = (c.counters ?? []).filter(ct => !ct.hidden).map(ct => `<span>${ct.name} <b class="gold">${u.counters[ct.id] ?? 0}</b></span>`).join('');
   const under = c.underName ? `<span class="underchip" data-under="${u.id}">${c.underName} <b>${u.under.length}</b> ▸</span>` : '';
   let actions = '';
-  if (side === 'mine' && myTurn && u.life === 'alive') {
+  if (side === 'mine' && myTurn && g.canAct(u)) {
     const btn = (a: Action, label: string, extra = '') => {
       const err = g.checkAction(me, a);
       return `<button class="act-btn ${extra}" data-action='${esc(JSON.stringify(a))}' ${err ? `disabled title="${esc(err)}"` : ''}>${label}</button>`;
     };
     if (!c.noAttack) actions += btn({ type: 'attack', unitId: u.id }, `普攻 ${u.atkCost}`);
     actions += btn({ type: 'advance', unitId: u.id }, '居前 1');
-    if (g.rescueAllowed(u)) actions += btn({ type: 'rescue', unitId: u.id }, `救治 ${g.teammate(u).tp * 2}`);
+    if (g.rescueAllowed(u)) actions += btn({ type: 'rescue', unitId: u.id }, `救治 ${g.rescueCost(u)}`);
     for (const ab of c.abilities.filter(a => a.active)) actions += btn({ type: 'ability', unitId: u.id, abilityId: ab.id }, ab.name, 'ability');
   }
   const hpPct = Math.max(0, u.hp / u.maxHp * 100);
@@ -210,7 +210,7 @@ export function handHtml(g: Game, u: Unit, myPrompt: Prompt | null, myTurn: bool
     const mid = (n - 1) / 2;
     const rot = (i - mid) * 2.5;
     const y = Math.abs(i - mid) * Math.abs(i - mid) * 2;
-    const playable = myTurn && u.life === 'alive' && g.checkAction(me, { type: 'play', unitId: u.id, cardUid: c.uid }) === null;
+    const playable = myTurn && g.canAct(u) && g.checkAction(me, { type: 'play', unitId: u.id, cardUid: c.uid }) === null;
     const selectable = selecting && (myPrompt as any).cardUids.includes(c.uid);
     const cls = ['card', playable ? 'playable' : '', selectable ? 'selectable' : '', ui.selected.has(c.uid) ? 'selected' : '', ui.picked?.uid === c.uid ? 'picked' : '', hidden?.has(c.uid) ? 'pending' : ''].join(' ');
     html += `<div class="${cls}" data-card="${c.uid}" data-owner="${u.id}" data-preview-card="${c.defId}" style="--x:${start + i * step}px;--y:${y}px;--rot:${rot}deg;z-index:${i + 1}">${cardInner(c.defId, g.cardCost(u, c.defId))}</div>`;

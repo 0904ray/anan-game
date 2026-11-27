@@ -92,7 +92,15 @@ export class Game {
   teammate(u: Unit): Unit { return this.state.players[u.owner].units[1 - u.slot]; }
   allies(u: Unit): Unit[] { return this.state.players[u.owner].units.filter(x => x.life !== 'dead'); }
   enemiesOf(owner: PlayerIdx): Unit[] { return this.state.players[1 - owner].units.filter(x => x.life !== 'dead'); }
-  effSp(u: Unit): number { return u.life === 'dying' ? -1 : u.baseSp + u.spBonus + (CHAR_DEFS[u.charId].hooks?.spDelta?.(this, u) ?? 0); }
+  /** SP：瀕死時固定 -1（擁有[不屈]的單位例外，SP 不發生變化） */
+  effSp(u: Unit): number {
+    if (u.life === 'dying' && !CHAR_DEFS[u.charId].unyielding) return -1;
+    return u.baseSp + u.spBonus + (CHAR_DEFS[u.charId].hooks?.spDelta?.(this, u) ?? 0);
+  }
+  /** 這個單位現在能不能行動（[不屈]的單位[瀕死]時也可以） */
+  canAct(u: Unit): boolean {
+    return u.life === 'alive' || (u.life === 'dying' && !!CHAR_DEFS[u.charId].unyielding);
+  }
   isWounded(u: Unit): boolean { return u.life === 'alive' && !u.noWound && u.tp <= Math.floor(this.effTpMax(u) / 2); }
   /** 目前的最大 TP（含永久減少，例如[墬淵]），最低 1 */
   effTpMax(u: Unit): number { return Math.max(1, u.tpMax - u.tpMaxDown); }
@@ -111,6 +119,12 @@ export class Game {
   rescueAllowed(u: Unit): boolean {
     if (u.life !== 'alive' || this.teammate(u).life !== 'dying') return false;
     return !!CHAR_DEFS[u.charId].rescueUnlimited || !this.state.players[u.owner].rescueUsed;
+  }
+  /** [救治]的總花費（HP＋AP）：預設隊友 TP × 2，角色可以用 CharDef.rescueCost 改寫 */
+  rescueCost(u: Unit): number {
+    const ally = this.teammate(u);
+    const f = CHAR_DEFS[u.charId].rescueCost;
+    return Math.max(0, f ? f(this, u, ally) : ally.tp * 2);
   }
   /** 實際攻擊力（含角色能力加成） */
   effAt(u: Unit): number { return u.at + (CHAR_DEFS[u.charId].hooks?.atBonus?.(this, u) ?? 0); }
@@ -150,9 +164,10 @@ export class Game {
     else this.state.prompt = r.value;
     this.checkGameOver();
   }
-  private checkGameOver() {
+  private   checkGameOver() {
     if (this.state.winner !== null) return;
-    const lost = [0, 1].map(p => this.state.players[p].units.every(u => u.life !== 'alive'));
+    // [不屈]的單位[瀕死]時還能行動，所以不算「無法行動」
+    const lost = [0, 1].map(p => this.state.players[p].units.every(u => !this.canAct(u)));
     if (lost[0] || lost[1]) {
       this.state.winner = lost[0] && lost[1] ? 'draw' : (lost[0] ? 1 : 0);
       this.gen = null;
@@ -210,7 +225,7 @@ export class Game {
     if (a.type === 'answer') return '無效';
     const u = this.safeUnit(a.unitId);
     if (!u || u.owner !== player) return '不是你的角色';
-    if (u.life !== 'alive') return '這個角色無法行動';
+    if (!this.canAct(u)) return '這個角色無法行動';
     switch (a.type) {
       case 'play': {
         const c = u.hand.find(x => x.uid === a.cardUid);
@@ -239,10 +254,11 @@ export class Game {
         if (u.ap < 1) return 'AP 不足';
         return null;
       case 'rescue': {
+        if (u.life !== 'alive') return '瀕死時不能[救治]';
         if (!CHAR_DEFS[u.charId].rescueUnlimited && this.state.players[player].rescueUsed) return '救治一局只能用一次';
         const ally = this.teammate(u);
         if (ally.life !== 'dying') return '沒有瀕死的隊友';
-        const cost = ally.tp * 2;
+        const cost = this.rescueCost(u);
         if (u.hp - 1 + u.ap < cost) return `HP+AP 不足（需要 ${cost}，且 HP 至少留 1）`;
         return null;
       }
@@ -323,7 +339,7 @@ export class Game {
       case 'rescue': {
         const u = this.unit(a.unitId);
         const ally = this.teammate(u);
-        const cost = ally.tp * 2;
+        const cost = this.rescueCost(u);
         const minAp = Math.max(0, cost - (u.hp - 1));
         const maxAp = Math.min(u.ap, cost);
         let apPay = minAp;
@@ -332,8 +348,7 @@ export class Game {
         }
         const hpPay = cost - apPay;
         u.ap -= apPay;
-        u.hp -= hpPay;
-        if (hpPay) this.fx({ t: 'damage', unitId: u.id, amount: hpPay });
+        if (hpPay) this.payHp(u, hpPay);
         if (!CHAR_DEFS[u.charId].rescueUnlimited) this.state.players[player].rescueUsed = true; // 不限次數的角色不佔用一局一次的額度
         this.log(`${u.name} 支付 ${apPay} AP + ${hpPay} HP，[救治] ${ally.name}`, u.owner);
         this.reviveUnit(ally, cost);
@@ -375,7 +390,8 @@ export class Game {
         u.critical = u.tp === 0;
         u.ap = Math.min(2 * ps.turnCount, u.apMax);
       } else {
-        u.ap = 0;
+        // [不屈]的瀕死單位照樣回 AP，才能行動；TP 不重置（瀕死的 TP 用來算[處決]）
+        u.ap = this.canAct(u) ? Math.min(2 * ps.turnCount, u.apMax) : 0;
       }
     }
     this.fx({ t: 'turn', player: p });
@@ -384,7 +400,7 @@ export class Game {
       for (const s of Object.values(STATUS_DEFS)) if ((u.counters[s.id] ?? 0) > 0) s.onTurnStart?.(this, u);
     }
     for (const u of ps.units) {
-      if (u.life !== 'alive') continue;
+      if (!this.canAct(u)) continue;
       CHAR_DEFS[u.charId].hooks?.onTurnStartBeforeDraw?.(this, u);
       this.draw(u, 1, true);
     }
@@ -415,7 +431,7 @@ export class Game {
   // ======================================================================
   /** 抽牌；牌組空了就把棄牌區洗回去。瀕死／死亡的角色不能抽牌 */
   draw(u: Unit, n: number, silent = false): number {
-    if (u.life !== 'alive' || n <= 0) return 0;
+    if (!this.canAct(u) || n <= 0) return 0;
     let got = 0;
     for (let i = 0; i < n; i++) {
       if (!u.deck.length) {
@@ -547,9 +563,24 @@ export class Game {
       this.strikeOnce(src, tgt, opts);
     }
   }
+  /**
+   * 「打擊自身」：對自己[打擊]（造成傷害並 -1 TP）。
+   * 角色可以用 hooks.selfHit 改寫傷害（例如自傷減半、不計算[負傷]的額外增傷）。
+   */
+  strikeSelf(u: Unit, times = 1) {
+    const h = CHAR_DEFS[u.charId].hooks;
+    for (let i = 0; i < times; i++) {
+      if (u.life === 'dead' || this.state.winner !== null) break;
+      const opt = h?.selfHit?.(this, u);
+      this.log(`${u.name} 打擊自身`, u.owner);
+      this.fx({ t: 'strike', unitId: u.id, targetId: u.id });
+      this.attackHit(u, u, opt?.power ?? this.effAt(u), true, false, !!opt?.noWoundBonus);
+      h?.onStrike?.(this, u);
+    }
+  }
 
   /** 一次攻擊命中，回傳對 HP 造成的傷害。direct = [直擊]（不減少 TP） */
-  attackHit(src: Unit, tgt: Unit, base: number, isStrike: boolean, direct = false): number {
+  attackHit(src: Unit, tgt: Unit, base: number, isStrike: boolean, direct = false, noWoundBonus = false): number {
     if (tgt.life === 'dead') return 0;
     if (tgt.life === 'dying') {
       const dmg = Math.max(0, base - tgt.dmgReduce);
@@ -558,7 +589,7 @@ export class Game {
       this.dyingTpLoss(tgt, loss);
       return 0;
     }
-    const wounded = this.isWounded(tgt);
+    const wounded = !noWoundBonus && this.isWounded(tgt);
     const dmg = Math.max(0, base + (wounded ? 1 : 0) - tgt.dmgReduce);
     const extra = [wounded ? '負傷+1' : '', tgt.dmgReduce ? `減傷-${tgt.dmgReduce}` : ''].filter(Boolean).join('、');
     this.log(`${tgt.name} 受到 ${dmg} 點傷害${extra ? `（${extra}）` : ''}`, src.owner);
@@ -575,7 +606,16 @@ export class Game {
     n -= absorbed;
     u.hp -= n;
     this.fx({ t: 'damage', unitId: u.id, amount: n + absorbed });
+    CHAR_DEFS[u.charId].hooks?.onHpLoss?.(this, u, n + absorbed);
     if (u.hp <= 0) this.enterDying(u);
+  }
+
+  /** 支付 HP 代價（例如[救治]）：不算受到傷害，但算「損失 HP」 */
+  payHp(u: Unit, n: number) {
+    if (n <= 0) return;
+    u.hp -= n;
+    this.fx({ t: 'damage', unitId: u.id, amount: n });
+    CHAR_DEFS[u.charId].hooks?.onHpLoss?.(this, u, n);
   }
 
   /**
@@ -634,7 +674,23 @@ export class Game {
     } else if (!wasWounded && this.isWounded(u)) {
       this.log(`${u.name} 陷入[負傷]`, u.owner);
       this.fx({ t: 'status', unitId: u.id, text: '負傷' });
+      // 「任一單位進入[負傷]」的被動（例如利利安特的 +3 AP）
+      for (const src of this.allUnits()) {
+        if (this.canAct(src)) CHAR_DEFS[src.charId].hooks?.onUnitWounded?.(this, src, u);
+      }
     }
+  }
+
+  /** 回復 TP（上限＝目前的最大 TP）：例如「+1 TP」 */
+  gainTp(u: Unit, n: number) {
+    if (u.life === 'dead' || n <= 0) return;
+    const before = u.tp;
+    u.tp = Math.min(this.effTpMax(u), u.tp + n);
+    const got = u.tp - before;
+    if (!got) return;
+    if (u.tp > 0) u.critical = false; // TP 回到 0 以上就不再是[重創]
+    this.log(`${u.name} 回復 ${got} TP`, u.owner);
+    this.fx({ t: 'status', unitId: u.id, text: `TP+${got}` });
   }
 
   /** 直接[處決]瀕死單位 */

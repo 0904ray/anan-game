@@ -59,6 +59,12 @@ export interface CharDef {
   noAttack?: boolean;
   /** [救治]不限次數：不佔用、也不消耗一局一次的額度 */
   rescueUnlimited?: boolean;
+  /** [救治]的總花費（HP＋AP）改寫；沒寫就是隊友目前 TP × 2 */
+  rescueCost?(g: Game, u: Unit, ally: Unit): number;
+  /** [不屈]：這個單位[瀕死]時依然可以行動，SP 也不會變成 -1 */
+  unyielding?: boolean;
+  /** 選角畫面的 AT 顯示文字（AT 會變動的角色用，例如「AT X（＝當前 TP）」） */
+  atText?: string;
   abilities: AbilityDef[];
   deck: [string, number][];
   hooks?: {
@@ -90,6 +96,12 @@ export interface CharDef {
     onUnitCritical?(g: Game, u: Unit, target: Unit): void;
     /** 我方（任一單位）實際回復 HP 之後；u = 擁有此能力的單位，healed = 被治療的單位，amount = 實際回復量 */
     onAllyHeal?(g: Game, u: Unit, healed: Unit, amount: number): void;
+    /** 這個單位損失 HP 之後（受到傷害、支付 HP 代價都算）；amount = 實際損失的 HP */
+    onHpLoss?(g: Game, u: Unit, amount: number): void;
+    /** 任一單位進入[負傷]之後；u = 擁有此能力的單位，target = 進入[負傷]的單位 */
+    onUnitWounded?(g: Game, u: Unit, target: Unit): void;
+    /** 自己[打擊]自己（「打擊自身」）時的傷害設定；沒寫就是一般[打擊]的傷害 */
+    selfHit?(g: Game, u: Unit): { power: number; noWoundBonus?: boolean };
     /** SP 加減（例如「隊友有[聖環]時 SP -1」） */
     spDelta?(g: Game, u: Unit): number;
     /** 自己的回合結束時（切換到下一位玩家之前），可以回傳 Eff 讓玩家做選擇 */

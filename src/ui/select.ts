@@ -54,7 +54,7 @@ function cardHtml(id: string): string {
     ${slot >= 0 ? `<span class="sel-badge">${slot === 0 ? '左' : '右'}</span>` : ''}
     <span class="sel-name">${esc(c.name)}</span>
     <span class="sel-title">${esc(c.title)}</span>
-    <span class="sel-stats">HP ${c.hp}｜AP ${c.ap}｜TP ${c.tp}｜AT ${c.at}</span>
+    <span class="sel-stats">HP ${c.hp}｜AP ${c.ap}｜TP ${c.tp}｜${c.atText ?? `AT ${c.at}`}</span>
   </button>`;
 }
 
@@ -69,7 +69,7 @@ function detailHtml(id: string | null): string {
   return `<div style="--theme:${themeOf(id)}">
     <h3>${esc(c.name)}</h3>
     <div class="tag">${esc(c.title)}</div>
-    <div class="sel-statline">HP ${c.hp}　AP ${c.ap}　TP ${c.tp}　${c.noAttack ? `AT ${c.at}（不能普攻）` : `AT ${c.at} × AP ${c.atkCost}`}</div>
+    <div class="sel-statline">HP ${c.hp}　AP ${c.ap}　TP ${c.tp}　${c.atText ? `${c.atText} × AP ${c.atkCost}` : c.noAttack ? `AT ${c.at}（不能普攻）` : `AT ${c.at} × AP ${c.atkCost}`}</div>
     <h4>能力</h4>
     ${c.abilities.map((a, i) => `<div class="ab"><b>${i + 1}. ${esc(a.name)}</b>${a.active ? '<span class="act">主動</span>' : ''}：${richText(a.text)}</div>`).join('')}
     <h4>牌組（${total} 張）</h4>

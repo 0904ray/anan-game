@@ -4,3 +4,4 @@ import './granny';
 import './saviel';
 import './ranis';
 import './mia';
+import './liliante';
