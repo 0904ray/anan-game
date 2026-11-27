@@ -139,6 +139,7 @@ const heretic: CharDef = {
   lore: '在世界的夾縫中窺視著萬物，進而不斷學習的精神體。隨著理解與它接觸的人事物，慢慢地產生了各種欲望；但對於這個世界來說究竟是禍還是福，就只能看它是如何滿足慾望的了。具有不同於這個世界的能力，能夠改寫現實，且隨著自身的本能慾望和對於這個世界的理解，異端物的性質會逐漸改變。',
   hp: 40, ap: 0, tp: 6, at: 0, atkCost: 0, sp: 0,
   costAs: 'hand',
+  forms: [{ id: 'intrude', name: '異方侵入', counter: INTRUDE }, { id: 'beyond', name: '超越此方', counter: BEYOND }], // 型態立繪
   attackCostText: '全手牌',
   atText: 'AT X（＝掃場移除的手牌數）',
   counters: [

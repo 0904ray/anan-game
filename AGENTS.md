@@ -103,6 +103,7 @@ test/
 7. **圖片提示詞不用寫**：`圖片提示詞.md` 由專案管理（Claude，負責架構與程式管理的那位）統一撰寫，風格和規格才會一致。
    新角色的 PR 說明裡請附一段「**外觀設定**」，提供：外型、**武器**、代表色、個性氣質，以及每張卡想呈現的畫面重點（一兩句就好）。
    圖片檔名規格：立繪 `assets/chars/<角色id>`、卡圖 `assets/cards/<卡牌id>`、卡背 `assets/backs/<角色id>`（.webp）。卡面不用底框圖，外框用 `theme` 主題色。
+   會變身的角色可以有型態立繪：`CharDef.forms`（`{ id, name, counter }`，計數器 > 0 時頭像換成 `assets/chars/<角色id>_<型態id>`，沒圖就用一般立繪），例如異端物的異方侵入／超越此方。
 8. 登記後選角畫面會**自動出現**新角色，不用改任何畫面程式。還沒做完、不想讓玩家選到的角色，在 `CharDef` 設 `hidden: true`。
 9. 想直接測新角色：開 `?autostart=bot&teams=<我方角色1>,<我方角色2>;<對方角色1>,<對方角色2>`（例如 `?autostart=bot&teams=ranis,savanna;saviel,granny`），或改 `src/config.ts` 的 `DEFAULT_TEAMS`。
 

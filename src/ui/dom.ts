@@ -18,8 +18,13 @@ export const ASSET_BASE = {
   back: 'assets/ui/card-back',
 };
 
+/** 這張圖有沒有找到實際檔案（開場預載後才準） */
+export const hasAsset = (base: string) => !!resolved.get(base);
+
 export const ASSET = {
   char: (id: string) => url(ASSET_BASE.char(id)),
+  /** 角色型態立繪（例如異端物的異方侵入）：檔名 assets/chars/<角色id>_<型態id>，沒有圖就用一般立繪 */
+  charForm: (id: string, form: string) => (hasAsset(ASSET_BASE.char(`${id}_${form}`)) ? url(ASSET_BASE.char(`${id}_${form}`)) : url(ASSET_BASE.char(id))),
   card: (id: string) => url(ASSET_BASE.card(id)),
   get table() { return url(ASSET_BASE.table); },
   get lobby() { return url(ASSET_BASE.lobby); },

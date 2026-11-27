@@ -101,7 +101,7 @@ export function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: s
   return `
   <div class="${cls}" data-unit="${u.id}">
     <div class="portrait tilt" data-unit-click="${u.id}" style="--hue:${hue(u.charId)};${artToneOf(u.charId)}">
-      <div class="art"><span class="initial">${esc(CHAR_DEFS[u.charId].name[0])}</span><img src="${ASSET.char(u.charId)}"></div>
+      <div class="art"><span class="initial">${esc(CHAR_DEFS[u.charId].name[0])}</span><img src="${portraitOf(u)}"></div>
       <div class="badges">${badges(g, u)}</div>
       <div class="nameplate">${esc(u.name)}</div>
       <div class="shine"></div>
@@ -117,6 +117,11 @@ export function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: s
 
 /** 角色主題色 */
 export const themeOf = (charId: string) => CHAR_DEFS[charId]?.theme ?? '#c8963e';
+/** 單位的立繪：有型態（CharDef.forms）且計數器 > 0 時換成型態立繪 */
+export function portraitOf(u: Unit): string {
+  const f = CHAR_DEFS[u.charId]?.forms?.find(x => (u.counters[x.counter] ?? 0) > 0);
+  return f ? ASSET.charForm(u.charId, f.id) : ASSET.char(u.charId);
+}
 /** 角色的圖片色調校正（CharDef.artTone）：輸出成 CSS 變數，tone.css 會疊在色調層次上 */
 export const artToneOf = (charId: string) => { const t = CHAR_DEFS[charId]?.artTone; return t ? `--art-tone:${t.replace(/[;"<>]/g, '')}` : ''; };
 

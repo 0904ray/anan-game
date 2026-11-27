@@ -46,6 +46,11 @@ export interface CharDef {
   hidden?: boolean;
   /** 角色主題色（CSS 顏色）：卡面細框、名稱條底線、牌堆外框。沒寫用金色 */
   theme?: string;
+  /**
+   * 型態立繪：單位的 counters[counter] > 0 時，頭像換成 assets/chars/<角色id>_<id>（沒有圖就用一般立繪）。
+   * 例如異端物的[異方侵入]／[超越此方]。
+   */
+  forms?: { id: string; name: string; counter: string }[];
   /** 圖片色調校正（CSS filter），給畫風偏淡或偏暗的角色用，例如 'contrast(1.2) saturate(1.3)'；會疊在牌桌的色調層次上，套用到這個角色的卡圖和頭像 */
   artTone?: string;
   hp: number;
