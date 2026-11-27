@@ -151,7 +151,7 @@ describe('米雅', () => {
 
     g.apply(0, { type: 'play', unitId: m.id, cardUid: give(g, m.id, 'mia_prayer') });
     expect(m.hp).toBe(21); // 1 HP
-    expect(mate.hp).toBe(25); // 1 + 聖環 1 + 2 + 聖環 1
+    expect(mate.hp).toBe(24); // 1 + 2 = 3，再加[聖環]的治療加成 1（同一張牌只算一次治療）
     expect(mate.hand.length).toBe(hand0 + 1);
   });
 
@@ -224,6 +224,16 @@ describe('米雅', () => {
     expect(e1.counters.atDown).toBe(0);
 
     // 我方下個回合開始：加回去
+    g.apply(0, { type: 'endTurn' });
+    g.apply(1, { type: 'endTurn' });
+    expect(e.at).toBe(5);
+
+    // 米雅中途陣亡也會恢復（狀態掛在目標身上）
+    m.ap = 4;
+    g.apply(0, { type: 'play', unitId: m.id, cardUid: give(g, m.id, 'mia_confess') });
+    ans(g, e.id);
+    expect(e.at).toBe(3);
+    m.life = 'dead';
     g.apply(0, { type: 'endTurn' });
     g.apply(1, { type: 'endTurn' });
     expect(e.at).toBe(5);

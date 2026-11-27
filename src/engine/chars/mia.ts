@@ -9,7 +9,7 @@ import type { Unit } from '../types';
 const HOLY = 'holy';      // [聖環]：自己的回合結束與受到治療時回復 1 HP（自己回合開始時解除）
 const HOLYP = 'holyP';    // 永久[聖環]：不解除
 const HD = 'healDraw';    // 本回合「我方首次回復 HP」是否已經抽過牌
-const ATD = 'atDown';     // 【告罪】扣掉的 AT（記在目標身上，我方下個回合開始時加回去）
+const ATD = 'atDown';     // 【告罪】扣掉的 AT（記在目標身上，目標的回合結束時加回去＝米雅的下個回合開始前）
 const FAVOR = 'favor';    // 【不公之恩寵】使用過的次數（使用 2 次後移出牌局）
 
 const hasHoly = (g: Game, u: Unit) => g.counter(u, HOLY) > 0 || g.counter(u, HOLYP) > 0;
@@ -30,22 +30,10 @@ function giveHoly(g: Game, by: Unit, t: Unit, permanent = false) {
   return true;
 }
 
-/** 免費[救治]瀕死的隊友（不付 HP／AP，也不佔用一局一次的額度） */
-function freeRescue(g: Game, by: Unit, t: Unit) {
-  if (t.life !== 'dying') return;
-  t.life = 'alive';
-  t.hp = Math.min(t.maxHp, t.tp * 2);
-  t.ap = 0;
-  t.critical = t.tp === 0;
-  t.attacksThisTurn = 999; t.advanced = true; // 被救治的角色當回合不能再行動
-  g.log(`【${by.name}】無條件[救治] ${t.name}，以 ${t.hp} HP 回歸`, by.owner);
-  g.fx({ t: 'heal', unitId: t.id, amount: t.hp });
-}
-
 const cards: CardDef[] = [
   {
     id: 'mia_sigh', charId: 'mia', name: '聖雅嘆息', cost: 1,
-    text: '回復我方 1 名單位 1 HP。如果該單位上回合有[負傷]，改為 2 HP。',
+    text: '回復我方 1 名單位 1 HP。如果該單位上回合處於[負傷]，改為 2 HP。',
     *play(g, u) {
       const t = yield* g.chooseAlly(u, '聖雅嘆息：選 1 名要回復的我方單位');
       if (!t) return;
@@ -57,17 +45,15 @@ const cards: CardDef[] = [
     text: '回復我方全體 1 HP；[聖環]單位再回復 2 HP、抽 1 張牌。',
     *play(g, u) {
       for (const a of g.allies(u)) {
-        g.heal(a, 1);
-        if (hasHoly(g, a)) {
-          g.heal(a, 2);
-          g.draw(a, 1);
-        }
+        const holy = hasHoly(g, a);
+        g.heal(a, holy ? 3 : 1); // 同一張牌對同一個單位算一次治療（[聖環]的治療加成只加一次）
+        if (holy) g.draw(a, 1);
       }
     },
   },
   {
     id: 'mia_trouble', charId: 'mia', name: '麻煩死了', cost: 2,
-    text: '給予我方 1 名單位臨時 1 TP。如果該單位有[聖環]，改為臨時 3 TP。',
+    text: '給予我方 1 名單位 +1 [臨時TP]。如果該單位有[聖環]，改為 +3 [臨時TP]。',
     *play(g, u) {
       const t = yield* g.chooseAlly(u, '麻煩死了：選 1 名要給予臨時 TP 的我方單位');
       if (!t) return;
@@ -90,14 +76,14 @@ const cards: CardDef[] = [
   },
   {
     id: 'mia_confess', charId: 'mia', name: '告罪', cost: 4,
-    text: '指定 1 名敵方單位，-2 AT 直到下個自身回合。',
+    text: '指定 1 名敵方單位 -2 AT，直到米雅的下個回合。',
     *play(g, u) {
       const t = yield* g.chooseEnemy(u, '告罪：指定 1 名敵方單位 -2 AT');
       if (!t) return;
       const cut = Math.min(2, Math.max(0, t.at)); // AT 不會被扣到負的，實際扣多少就記多少
       t.at -= cut;
       g.addCounter(t, ATD, cut);
-      g.log(`${t.name} -${cut} AT，直到我方下個回合開始`, u.owner);
+      g.log(`${t.name} -${cut} AT，直到米雅的下個回合`, u.owner);
       g.fx({ t: 'status', unitId: t.id, text: `AT-${cut}` });
     },
   },
@@ -134,7 +120,8 @@ const cards: CardDef[] = [
       } else if (dying.length && pick === 1) {
         const t = yield* g.chooseUnit(u.owner, '不公之恩寵：選 1 名[瀕死]的我方單位', dying);
         if (!t) return;
-        freeRescue(g, u, t);
+        g.log(`【${u.name}】無條件[救治] ${t.name}`, u.owner);
+        g.reviveUnit(t, t.tp * 2); // 和一般[救治]一樣以「TP × 2」的 HP 回歸，只是不用付代價
         g.heal(t, 5);
       } else {
         for (const a of g.allies(u)) g.heal(a, 10);
@@ -154,10 +141,10 @@ const mia: CharDef = {
   counters: [
     { id: FAVOR, name: '恩寵', hidden: true },
     { id: HD, name: '本回合已抽', hidden: true },
-    { id: ATD, name: 'AT 扣減', hidden: true },
   ],
   keywords: {
     聖環: '擁有[聖環]的單位，自己的回合結束時與受到治療時各自回復 1 HP；擁有者自己的下一個回合開始時解除（永久[聖環]不會解除）。同一名單位只能有一個[聖環]，不會疊加。',
+    告罪: '【告罪】造成的 AT 減少：目標自己的回合結束時恢復（也就是撐到米雅的下個回合）。',
   },
   abilities: [
     { id: 'p1', active: false, name: '神的恩寵', text: '米雅[救治]友軍不限次數，而且不佔用一局一次的額度。' },
@@ -189,15 +176,6 @@ const mia: CharDef = {
     },
     onTurnStartBeforeDraw(g, u) {
       if (g.counter(u, HD)) g.addCounter(u, HD, -g.counter(u, HD));
-      // 【告罪】：我方回合開始時把扣掉的 AT 加回去
-      for (const e of g.enemiesOf(u.owner)) {
-        const n = g.counter(e, ATD);
-        if (!n) continue;
-        g.addCounter(e, ATD, -n);
-        e.at += n;
-        g.log(`${e.name} 的 AT 恢復 +${n}`, u.owner);
-        g.fx({ t: 'status', unitId: e.id, text: `AT+${n}` });
-      }
     },
     /** 能力 4：隊友擁有[聖環]時 SP -1 */
     spDelta(g, u) {
@@ -217,6 +195,19 @@ registerStatus({
   id: HOLYP, name: '聖環',
   healBonus: () => 1,
   onTurnEnd: (g, u) => g.heal(u, 1, true), // 永久[聖環]：不解除
+});
+
+// 【告罪】：記在目標身上（畫面顯示徽章），目標自己的回合結束時把 AT 加回去
+// ＝「直到米雅的下個回合」；米雅中途陣亡也照樣恢復
+registerStatus({
+  id: ATD, name: '告罪',
+  onTurnEnd: (g, u) => {
+    const n = g.counter(u, ATD);
+    g.addCounter(u, ATD, -n);
+    u.at += n;
+    g.log(`${u.name} 的 AT 恢復 +${n}（告罪結束）`, u.owner);
+    g.fx({ t: 'status', unitId: u.id, text: `AT+${n}` });
+  },
 });
 
 registerChar(mia, cards);

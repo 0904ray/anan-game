@@ -334,13 +334,8 @@ export class Game {
         u.hp -= hpPay;
         if (hpPay) this.fx({ t: 'damage', unitId: u.id, amount: hpPay });
         if (!CHAR_DEFS[u.charId].rescueUnlimited) this.state.players[player].rescueUsed = true; // 不限次數的角色不佔用一局一次的額度
-        ally.life = 'alive';
-        ally.hp = Math.min(ally.maxHp, cost);
-        ally.critical = ally.tp === 0;
-        ally.ap = 0;
-        ally.attacksThisTurn = 999; ally.advanced = true; // 被救治的角色當回合不能再行動
-        this.log(`${u.name} 支付 ${apPay} AP + ${hpPay} HP，[救治] ${ally.name}，以 ${ally.hp} HP 回歸！`, u.owner);
-        this.fx({ t: 'heal', unitId: ally.id, amount: ally.hp });
+        this.log(`${u.name} 支付 ${apPay} AP + ${hpPay} HP，[救治] ${ally.name}`, u.owner);
+        this.reviveUnit(ally, cost);
         return;
       }
       case 'ability': {
@@ -597,6 +592,21 @@ export class Game {
     this.fx({ t: 'heal', unitId: u.id, amount: got });
     // 我方單位回復 HP 時的被動（例如米雅抽牌）
     for (const a of this.allies(u)) CHAR_DEFS[a.charId].hooks?.onAllyHeal?.(this, a, u, got);
+  }
+
+  /**
+   * [救治]的結果：[瀕死]單位以 hp 點 HP 回歸（不超過最大 HP），當回合不能再行動。
+   * 一般救治和效果造成的救治（例如「無條件救治」）都用這個。
+   */
+  reviveUnit(u: Unit, hp: number) {
+    if (u.life !== 'dying') return;
+    u.life = 'alive';
+    u.hp = Math.max(1, Math.min(u.maxHp, hp));
+    u.critical = u.tp === 0;
+    u.ap = 0;
+    u.attacksThisTurn = 999; u.advanced = true; // 被救治的角色當回合不能再行動
+    this.log(`${u.name} 以 ${u.hp} HP 回歸！`, u.owner);
+    this.fx({ t: 'heal', unitId: u.id, amount: u.hp });
   }
 
   /** 減少 TP（打擊或效果）。TP 歸零 → [重創]：-3 HP 直傷 */
