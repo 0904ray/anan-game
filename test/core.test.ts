@@ -78,6 +78,26 @@ describe('攻擊、TP、負傷、重創', () => {
     expect(t.critical).toBe(false);
   });
 
+  it('TP ≤ 最大值一半時，自己回合開始才會回滿（只看 TP，不看[負傷]狀態）', () => {
+    const g = newGame();
+    const u = g.state.players[0].units[0]; // TP 6，一半 = 3
+    g.loseTp(u, 2); // 剩 4：沒[負傷]
+    g.apply(0, { type: 'endTurn' });
+    g.apply(1, { type: 'endTurn' });
+    expect(u.tp).toBe(4); // 不回復
+    g.loseTp(u, 1); // 剩 3：[負傷]
+    expect(g.isWounded(u)).toBe(true);
+    g.apply(0, { type: 'endTurn' });
+    g.apply(1, { type: 'endTurn' });
+    expect(u.tp).toBe(6); // 回滿
+    g.loseTp(u, 3); // 剩 3，但[負傷]被清掉
+    u.noWound = true;
+    expect(g.isWounded(u)).toBe(false);
+    g.apply(0, { type: 'endTurn' });
+    g.apply(1, { type: 'endTurn' });
+    expect(u.tp).toBe(6); // 照樣回滿
+  });
+
   it('SP：只能指定 SP 最高的敵人；居前 SP+1，一回合一次', () => {
     const g = newGame();
     g.apply(0, { type: 'endTurn' });

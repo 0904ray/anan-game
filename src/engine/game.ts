@@ -394,10 +394,17 @@ export class Game {
       u.tHp = 0; u.tTp = 0; u.dmgReduce = 0; u.noWound = false; u.noTpLoss = false;
       u.spBonus = 0; u.attacksThisTurn = 0; u.advanced = false; u.buyUsedThisTurn = false; u.noActionTurn = false;
       if (u.life === 'alive') {
-        if (u.halfTpNext) {
+        // TP ≤ 最大值一半（無條件捨去）時，自己回合開始才會回滿；否則維持原值。
+        // 只看 TP 數值，不看[負傷]狀態：[負傷]被效果清掉（例如 noWound）也照樣回滿
+        if (u.tp > Math.floor(this.effTpMax(u) / 2)) {
+          // 不回復
+        } else if (u.halfTpNext) {
           u.tp = Math.ceil(this.effTpMax(u) / 2);
           this.log(`${u.name} 受到影響，只回復一半 TP（${u.tp}）`, p);
-        } else u.tp = this.effTpMax(u);
+        } else {
+          u.tp = this.effTpMax(u);
+          this.log(`${u.name} 的 TP 回滿`, p);
+        }
         u.halfTpNext = false;
         u.critical = u.tp === 0;
         u.ap = Math.min(2 * ps.turnCount, u.apMax);
