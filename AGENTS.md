@@ -148,6 +148,7 @@ test/
 - 本機模式（電腦、雙人同螢幕）是畫面先選角，再用選好的隊伍建立 `LocalSession`。
 - 對方送來的任何東西都當不可信：`Game.apply` 會驗證所有操作。
 - 手機切到背景時，和 PeerJS 連線伺服器的連線常常會斷：房主會自動 `peer.reconnect()`（房號不變），客人找不到房間或 10 秒連不上會自動重試 4 次；房主收到 `peer-unavailable`（有人加入到一半離開）不算錯誤。
+- 中繼（TURN）伺服器：兩支手機不能直接連線時（部分行動網路、學校／公司 Wi‑Fi）由中繼轉送。`config.ts` 的 `TURN_CREDENTIALS_URL` 填 Metered Open Relay 的憑證網址（免費每月 20 GB），開房／加入前會先去拿；沒填或拿不到就用 PeerJS 內建的（歐美伺服器，不穩）。
 - 測試連線可以自架 PeerJS 伺服器，網址加 `?peerHost=127.0.0.1&peerPort=9000&peerPath=/`。
 
 ## 不要做的事

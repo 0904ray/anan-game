@@ -1,6 +1,6 @@
 import Peer, { type DataConnection } from 'peerjs';
 import { Game, botStep, viewFor, isValidTeam, type Action, type GameState, type PlayerIdx, type Team } from '../engine';
-import { PEER_ID_PREFIX, BOT_DELAY_MS, ALLOW_SAME_CHAR_IN_TEAM } from '../config';
+import { PEER_ID_PREFIX, BOT_DELAY_MS, ALLOW_SAME_CHAR_IN_TEAM, TURN_CREDENTIALS_URL } from '../config';
 
 // =====================================================================
 // Session：畫面只跟 Session 溝通，不管是本機、電腦對手、還是連線
@@ -91,18 +91,44 @@ type Msg =
   | { type: 'status'; text: string }
   | { type: 'error'; text: string };
 
-function peerOptions(): any {
+/** PeerJS 內建的 STUN／中繼（歐美，台灣用起來不穩，留著當備援） */
+const PEERJS_DEFAULT_ICE: RTCIceServer[] = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' },
+];
+let iceCache: RTCIceServer[] | null = null;
+/**
+ * 中繼（TURN）伺服器：兩支手機不能直接連線時（部分行動網路、學校／公司 Wi‑Fi），資料改由中繼轉送。
+ * config.ts 的 TURN_CREDENTIALS_URL 有填就去拿（Metered Open Relay），拿不到就用 PeerJS 內建的。
+ */
+async function getIceServers(): Promise<RTCIceServer[]> {
+  if (iceCache) return iceCache;
+  if (TURN_CREDENTIALS_URL) {
+    try {
+      const ctl = new AbortController();
+      const t = setTimeout(() => ctl.abort(), 4000);
+      const r = await fetch(TURN_CREDENTIALS_URL, { signal: ctl.signal });
+      clearTimeout(t);
+      const list = r.ok ? await r.json() : null;
+      if (Array.isArray(list) && list.length) return (iceCache = [...list, ...PEERJS_DEFAULT_ICE]);
+    } catch { /* 拿不到就用內建的 */ }
+  }
+  return PEERJS_DEFAULT_ICE;
+}
+
+function peerOptions(iceServers: RTCIceServer[]): any {
   const q = new URLSearchParams(location.search);
   const host = q.get('peerHost');
-  if (!host) return { debug: 1 };
+  const config = { iceServers };
+  if (!host) return { debug: 1, config };
   return {
-    host, port: Number(q.get('peerPort') ?? 9000), path: q.get('peerPath') ?? '/', secure: q.get('peerSecure') === '1', debug: 1,
+    host, port: Number(q.get('peerPort') ?? 9000), path: q.get('peerPath') ?? '/', secure: q.get('peerSecure') === '1', debug: 1, config,
   };
 }
 
 export class HostSession implements Session {
   mode = 'host' as const;
-  private peer: Peer;
+  private peer!: Peer;
   private conn: DataConnection | null = null;
   private game: Game | null = null;
   private guestName = '對手';
@@ -112,8 +138,12 @@ export class HostSession implements Session {
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(public code: string, private myName: string, private ev: SessionEvents) {
-    this.peer = new Peer(PEER_ID_PREFIX + code, peerOptions());
     ev.onStatus('正在建立房間…');
+    getIceServers().then(ice => { if (!this.closed) this.setup(ice); });
+  }
+  private setup(ice: RTCIceServer[]) {
+    const { code, ev } = this;
+    this.peer = new Peer(PEER_ID_PREFIX + code, peerOptions(ice));
     this.peer.on('open', () => {
       if (!this.conn?.open) ev.onStatus(`房間已建立，房號 ${code}，等待對手加入…`);
     });
@@ -135,10 +165,10 @@ export class HostSession implements Session {
       c.on('close', () => ev.onStatus('對手已離線'));
     });
   }
-  private onVisible = () => { if (!document.hidden && this.peer.disconnected) this.reconnectSoon(0); };
+  private onVisible = () => { if (!document.hidden && this.peer?.disconnected) this.reconnectSoon(0); };
   /** 和連線伺服器斷線時重連（每 2 秒試一次，直到連上或關閉房間） */
   private reconnectSoon(delay = 1000) {
-    if (this.closed || this.peer.destroyed || this.retryTimer) return;
+    if (this.closed || !this.peer || this.peer.destroyed || this.retryTimer) return;
     if (!this.conn?.open) this.ev.onStatus(`和連線伺服器斷線，重新連線中…（房號 ${this.code}）`);
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null;
@@ -210,13 +240,13 @@ export class HostSession implements Session {
     this.closed = true;
     if (this.retryTimer) clearTimeout(this.retryTimer);
     document.removeEventListener('visibilitychange', this.onVisible);
-    this.conn?.close(); this.peer.destroy();
+    this.conn?.close(); this.peer?.destroy();
   }
 }
 
 export class GuestSession implements Session {
   mode = 'guest' as const;
-  private peer: Peer;
+  private peer!: Peer;
   private conn: DataConnection | null = null;
 
   private closed = false;
@@ -224,8 +254,12 @@ export class GuestSession implements Session {
   private static readonly MAX_TRIES = 5;
 
   constructor(private code: string, private myName: string, private ev: SessionEvents) {
-    this.peer = new Peer(peerOptions());
     ev.onStatus('正在連線…');
+    getIceServers().then(ice => { if (!this.closed) this.setup(ice); });
+  }
+  private setup(ice: RTCIceServer[]) {
+    const ev = this.ev;
+    this.peer = new Peer(peerOptions(ice));
     this.peer.on('open', () => { if (!this.conn) this.connect(); });
     this.peer.on('disconnected', () => { if (!this.closed && !this.conn?.open) setTimeout(() => { if (!this.closed && this.peer.disconnected) this.peer.reconnect(); }, 1000); });
     this.peer.on('error', (e: any) => {
@@ -274,5 +308,5 @@ export class GuestSession implements Session {
   submitTeam(team: Team) { this.sendHost({ type: 'team', team }); }
   rematch() { this.sendHost({ type: 'rematch' }); }
   reselect() { this.sendHost({ type: 'reselect' }); }
-  close() { this.closed = true; this.conn?.close(); this.peer.destroy(); }
+  close() { this.closed = true; this.conn?.close(); this.peer?.destroy(); }
 }
