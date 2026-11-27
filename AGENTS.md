@@ -126,6 +126,13 @@ test/
 - 動畫播放時 `ui/anim.ts` 的 `isBusy()` 為 true，輸入會被擋下（點擊＝加速）。
 - 色調層次統一在 `styles/tone.css`：只有能操作、正在發生的東西是全彩，其他圖退到背景。畫面太刺眼或太暗時只調那裡的變數，不要在別的地方另外加濾鏡；單一角色的畫風校正用 `CharDef.artTone`。
 
+## 裝成 App（PWA）
+
+- 放上 https 網址（GitHub Pages：`main` 分支的 `/docs`）後，手機和電腦都能「安裝」，裝好是橫向全螢幕、離線可玩（對電腦、本機雙人）。
+- `public/manifest.webmanifest`：App 名稱、圖示（`public/icons/`）、橫向全螢幕。`public/sw.js`：離線快取（遊戲本體和圖片先用快取）。
+- **檢查更新**：`npm run build` 會把 `src/`、`public/`、`index.html` 的內容算成一個建置編號，寫進程式（`__BUILD_ID__`）和 `docs/version.json`。玩家打開遊戲時 `ui/pwa.ts` 會去讀網站上的 `version.json`，編號不一樣就在大廳顯示「有新版本」，按下去清掉快取、換成新版。所以**改完推上 main（含 docs/）就是發布新版**，不用手動改編號；大廳顯示的版本字樣還是看 `config.ts` 的 `VERSION`，發布重要更新時記得一起改。
+- 開發伺服器、直接雙擊 `index.html`、嵌在預覽框裡都不會啟用（`ui/pwa.ts` 的 `enabled()`）。要在本機測，用 `npm run build` 後 `npx vite preview` 開 `http://localhost:4173`。
+
 ## 連線
 
 - PeerJS 端對端：**房主的瀏覽器跑規則**（權威），客人只送 `Action`，房主用 `viewFor` 把各自能看的畫面送回去。

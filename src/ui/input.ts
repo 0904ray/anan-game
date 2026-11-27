@@ -10,6 +10,7 @@ import { renderLobby, readName } from './lobby';
 import { enqueue, isBusy, fastForward } from './anim';
 import { showCharSheet, showFullLog, showPile, showUnder, showMenu } from './popups';
 import { setupZoom, zoomBlocksClick } from './zoom';
+import { applyUpdate, promptInstall } from './pwa';
 
 /** 文字訊息顯示在目前畫面合適的地方：大廳狀態列／選角狀態列／對戰中的提示 */
 function notify(t: string) {
@@ -218,6 +219,8 @@ stage.addEventListener('click', e => {
     }
     else if (k === 'lobby') { closeSelect(); setLastPlayed(null); renderLobby(); }
     else if (k === 'toggle-art') { setArtHidden(!artHidden); renderLobby(); }
+    else if (k === 'pwa-update') applyUpdate();
+    else if (k === 'pwa-install') promptInstall().then(() => renderLobby());
     else if (k === 'menu') showMenu();
     else if (k === 'fulllog') showFullLog();
     else if (k === 'close-popup') stage.querySelector('.popup-bg')?.remove();

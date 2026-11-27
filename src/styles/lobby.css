@@ -17,4 +17,8 @@
 .loading .bar .fill { height: 100%; width: 0; background: linear-gradient(90deg, #8a5a1c, #f3d48a); transition: width .15s; }
 .loading .txt { font-size: 24px; color: #bba98a; letter-spacing: 2px; }
 /* 隱藏／顯示 AI 圖的切換按鈕（右下角） */
-.art-toggle { position: absolute; right: 48px; bottom: 40px; }
+.art-toggle { position: absolute; right: 48px; bottom: 40px; width: auto; white-space: nowrap; padding-left: 22px; padding-right: 22px; }
+/* PWA：有新版本的提示（上方）、安裝按鈕和 iPhone 說明（左下角） */
+.update-bar { position: absolute; top: 36px; left: 50%; transform: translateX(-50%); font-size: 24px; padding: 14px 36px; box-shadow: 0 0 24px rgba(243, 180, 80, .45); }
+.install-btn { position: absolute; left: 48px; bottom: 40px; width: auto; white-space: nowrap; padding-left: 22px; padding-right: 22px; }
+.install-hint { position: absolute; left: 48px; bottom: 44px; max-width: 760px; font-size: 20px; color: #cdb88f; }

@@ -38,3 +38,10 @@ export function rel(p: PlayerIdx) { return p === me ? 'me' : 'op'; }
 /** 用目前畫面的資料建一個 Game，拿來判斷操作是否合法、算數值 */
 export function liveGame(): Game { return new Game(view!); }
 export function setArtHidden(v: boolean) { artHidden = v; try { localStorage.setItem('cg-hide-art', v ? '1' : '0'); } catch { /* 同上 */ } }
+
+/** PWA：網站上有新版本時記下版本字樣（大廳顯示「有新版本」） */
+export let updateReady: string | null = null;
+export function setUpdateReady(v: string | null) { updateReady = v; }
+/** PWA：瀏覽器允許「安裝到裝置」時拿到的事件（Chrome／Edge／Android），按大廳的安裝按鈕時用 */
+export let installPrompt: { prompt(): Promise<void> } | null = null;
+export function setInstallPrompt(e: { prompt(): Promise<void> } | null) { installPrompt = e; }
