@@ -1,6 +1,6 @@
 // 測試共用工具
 import { expect } from 'vitest';
-import { Game, botStep, viewFor, type PlayerIdx } from '../src/engine';
+import { CHAR_DEFS, Game, botStep, viewFor, type PlayerIdx } from '../src/engine';
 
 export type Team = [string, string];
 
@@ -48,7 +48,8 @@ export function simulate(teams: [Team, Team], n: number, deckSize: (p: PlayerIdx
         for (const u of p.units) {
           total += u.deck.length + u.hand.length + u.discard.length + u.playing.length + u.under.length + u.removed.length;
           if (u.hp < 0 || u.hp > u.maxHp) throw new Error(`seed ${seed}: ${u.id} hp ${u.hp}`);
-          if (u.tp < 0 || u.tp > u.tpMax) throw new Error(`seed ${seed}: ${u.id} tp ${u.tp}`);
+          // TP 沒有上限的角色可以超過最大 TP（例如休姆）
+          if (u.tp < 0 || (u.tp > u.tpMax && !CHAR_DEFS[u.charId].tpUncapped)) throw new Error(`seed ${seed}: ${u.id} tp ${u.tp}`);
           if (u.ap < 0) throw new Error(`seed ${seed}: ${u.id} ap ${u.ap}`);
           for (const [k, v] of Object.entries(u.counters)) if (v < 0) throw new Error(`seed ${seed}: ${u.id} ${k} ${v}`);
         }

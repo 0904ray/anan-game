@@ -1,9 +1,15 @@
 import type {
-  Action, Answer, AttackCtx, CardInst, GameState, PlayerIdx, PlayerState, Prompt, Unit, FxBody, UnitSnap,
+  Action, Answer, AttackCtx, CardInst, DeferTrigger, GameState, PlayerIdx, PlayerState, Prompt, Unit, FxBody, UnitSnap,
 } from './types';
-import { CARD_DEFS, CHAR_DEFS, END_OF_TURN, STATUS_DEFS, type Eff, type HandPaid, type PlayPay } from './defs';
+import { CARD_DEFS, CHAR_DEFS, END_OF_TURN, STATUS_DEFS, TRIGGERS, type Eff, type HandPaid, type PlayPay } from './defs';
 
 export interface ApplyResult { ok: boolean; error?: string }
+
+/**
+ * 攻擊被[反擊]取消的訊號：由 g.declareAttackTarget 丟出，執行這個操作的最外層（step）接住，
+ * 讓剩下的效果整段不結算。付費、牌進棄牌區、攻擊次數都要在丟出之前處理好。
+ */
+export class ActionCanceled {}
 
 export class Game {
   state: GameState;
@@ -24,7 +30,7 @@ export class Game {
     const state: GameState = {
       seed, turn: 0, active: 0, first: 0,
       players: [null as any, null as any],
-      prompt: null, winner: null, log: [], fx: [], fxSeq: 0, endOfTurn: [], uidCounter: 0, gameId: 'g' + seed.toString(36),
+      prompt: null, winner: null, log: [], fx: [], fxSeq: 0, endOfTurn: [], triggers: [], uidCounter: 0, gameId: 'g' + seed.toString(36),
     };
     const g = new Game(state);
     for (const p of [0, 1] as PlayerIdx[]) {
@@ -104,7 +110,11 @@ export class Game {
   canAct(u: Unit): boolean {
     return u.life === 'alive' || (u.life === 'dying' && !!CHAR_DEFS[u.charId].unyielding);
   }
-  isWounded(u: Unit): boolean { return u.life === 'alive' && !u.noWound && u.tp <= Math.floor(this.effTpMax(u) / 2); }
+  /** [負傷]：TP 剩一半以下，或角色另有規定（hook extraWounded，例如 HP ≤ 5） */
+  isWounded(u: Unit): boolean {
+    if (u.life !== 'alive' || u.noWound) return false;
+    return u.tp <= Math.floor(this.effTpMax(u) / 2) || !!CHAR_DEFS[u.charId].hooks?.extraWounded?.(this, u);
+  }
   /** 目前的最大 TP（含永久減少，例如[墬淵]），最低 1 */
   effTpMax(u: Unit): number { return Math.max(1, u.tpMax - u.tpMaxDown); }
   /** SP 規則：只能指定敵方 SP 最高的單位（同分皆可） */
@@ -175,11 +185,43 @@ export class Game {
   }
   private step(ans: any) {
     if (!this.gen) return;
-    const r = this.gen.next(ans);
-    if (r.done) { this.gen = null; this.state.prompt = null; }
-    else this.state.prompt = r.value;
+    let r: IteratorResult<Prompt, any>;
+    try {
+      r = this.gen.next(ans);
+    } catch (e) {
+      if (!(e instanceof ActionCanceled)) throw e;
+      // [反擊]取消：目前的操作整段中止（剩下的效果都不結算），接著處理延後觸發
+      this.gen = null;
+      this.state.prompt = null;
+      this.afterOperation();
+      return;
+    }
+    if (!r.done) { this.state.prompt = r.value; this.checkGameOver(); return; }
+    this.gen = null;
+    this.state.prompt = null;
+    this.afterOperation();
+  }
+  /** 一個操作結束後：先結算延後觸發（可以再要求玩家選擇），都處理完才檢查遊戲結束 */
+  private afterOperation() {
+    if (this.state.triggers.length) {
+      this.gen = this.triggerGen();
+      this.step(undefined);
+      return;
+    }
     this.checkGameOver();
   }
+  /** 依序結算延後觸發（結算期間又排進來的也會一起處理）；Prompt 的玩家是觸發者的擁有者 */
+  private *triggerGen(): Eff {
+    while (this.state.triggers.length) {
+      const t = this.state.triggers.shift()!;
+      const fn = TRIGGERS[t.kind];
+      const by = this.unit(t.by);
+      if (!fn || by.life === 'dead') continue;
+      yield* fn(this, by, t.data);
+    }
+  }
+  /** 排一個延後觸發：目前這個操作結算完之後才依序結算（見 defs.ts 的 registerTrigger） */
+  queueTrigger(t: DeferTrigger) { this.state.triggers.push(t); }
   private checkGameOver() {
     if (this.state.winner !== null) return;
     // [不屈]的單位[瀕死]時還能行動，所以不算「無法行動」
@@ -247,6 +289,12 @@ export class Game {
       case 'play': {
         const c = u.hand.find(x => x.uid === a.cardUid);
         if (!c) return '手牌中沒有這張牌';
+        const d = CARD_DEFS[c.defId];
+        // [反擊]牌只能在被攻擊時打出（由 declareAttackTarget 處理）
+        if (d.reaction) return '[反擊]牌只能在被攻擊時打出';
+        const can = d.canPlay?.(this, u);
+        if (can === false) return '現在不能打出這張牌';
+        if (typeof can === 'string') return can;
         const cost = this.cardCost(u, c);
         if (CHAR_DEFS[u.charId].costAs === 'hand') {
           // 打出的這張牌本身不能拿來付自己的費用
@@ -316,7 +364,7 @@ export class Game {
         u.ap -= cost;
         this.log(`${u.name} 使用${CHAR_DEFS[u.charId].underName ?? '下方'}的【${d.name}】（-${cost} AP）`, u.owner);
         this.fx({ t: 'play', unitId: u.id, defId: d.id, uid: card.uid, fromUnder: true });
-        yield* d.play(this, u);
+        if (d.play) yield* d.play(this, u);
         u.playing.splice(u.playing.indexOf(card), 1);
         u.discard.push(card);
         this.fx({ t: 'playEnd', unitId: u.id, defId: d.id });
@@ -332,6 +380,7 @@ export class Game {
         if (h?.attack) { yield* h.attack(this, u); return; }
         const t = yield* this.chooseEnemy(u, `${u.name} 普攻：選擇目標`);
         if (!t) return;
+        yield* this.declareAttackTarget(u, t); // 目標方面可能有[反擊]牌
         const atk = yield* this.beginAttack(u);
         this.log(`${u.name} 普攻 ${t.name}`, u.owner);
         const dmg = this.attackStrike(atk, t);
@@ -399,10 +448,10 @@ export class Game {
         if (u.tp > Math.floor(this.effTpMax(u) / 2)) {
           // 不回復
         } else if (u.halfTpNext) {
-          u.tp = Math.ceil(this.effTpMax(u) / 2);
+          u.tp = this.tpRefill(u, Math.ceil(this.effTpMax(u) / 2));
           this.log(`${u.name} 受到影響，只回復一半 TP（${u.tp}）`, p);
         } else {
-          u.tp = this.effTpMax(u);
+          u.tp = this.tpRefill(u, this.effTpMax(u));
           this.log(`${u.name} 的 TP 回滿`, p);
         }
         u.halfTpNext = false;
@@ -443,15 +492,15 @@ export class Game {
     const p = st.active;
     for (const e of st.endOfTurn) END_OF_TURN[e.kind]?.(this, this.unit(e.by));
     st.endOfTurn = [];
-    // 回合結束時的角色效果（例如拉尼斯可以移除手牌）
+    // 回合結束時的角色效果（例如拉尼斯可以移除手牌）；[不屈]的瀕死單位也照樣結算
     for (const u of st.players[p].units) {
-      if (u.life !== 'alive') continue;
+      if (!this.canAct(u)) continue;
       const r = CHAR_DEFS[u.charId].hooks?.onOwnTurnEnd?.(this, u);
       if (r) yield* r;
     }
     // 掛在單位身上的狀態：自己回合結束（例如[聖環]回復 1 HP）
     for (const u of st.players[p].units) {
-      if (u.life !== 'alive') continue;
+      if (!this.canAct(u)) continue;
       for (const s of Object.values(STATUS_DEFS)) if ((u.counters[s.id] ?? 0) > 0) s.onTurnEnd?.(this, u);
     }
     this.log(`${st.players[p].name} 結束回合`, p);
@@ -605,12 +654,20 @@ export class Game {
       u.ap -= cost;
       this.log(`${u.name} 打出【${d.name}】（-${cost} AP）`, u.owner);
     }
-    yield* d.play(this, u, pay);
+    let canceled = false;
+    try {
+      if (d.play) yield* d.play(this, u, pay);
+    } catch (e) {
+      // [反擊]取消：這張牌照樣結算完（進棄牌區），只是剩下的效果都不做
+      if (!(e instanceof ActionCanceled)) throw e;
+      canceled = true;
+    }
     u.playing.splice(u.playing.indexOf(card), 1);
     const rm = typeof d.removeAfterPlay === 'function' ? d.removeAfterPlay(this, u) : !!d.removeAfterPlay;
     if (rm) u.removed.push(card); // 使用後移出牌局
     else u.discard.push(card); // 打出的牌進棄牌區（不算「棄牌」）
     this.fx({ t: 'playEnd', unitId: u.id, defId: d.id, removed: rm });
+    if (canceled) throw new ActionCanceled();
   }
 
   /** 把指定的手牌移出牌局（不進棄牌區） */
@@ -717,6 +774,39 @@ export class Game {
   }
 
   /**
+   * 指定攻擊目標：普攻、以及牌／能力選出「要[打擊]／[直擊]的敵方目標」之後呼叫。
+   * 目標的我方如果有買得起的[反擊]牌，就問目標的擁有者要不要打出；打出就取消這次攻擊，
+   * 丟出 ActionCanceled 讓目前的操作整段中止（AP 已付、打出的牌已經進棄牌區、攻擊次數照算）。
+   * 範圍攻擊（打擊全體）、自己人的效果不要呼叫這個。
+   */
+  *declareAttackTarget(src: Unit, tgt: Unit): Eff {
+    if (src.owner === tgt.owner || tgt.life === 'dead' || !this.canAct(tgt)) return;
+    const opts = tgt.hand.filter(c => CARD_DEFS[c.defId].reaction && this.cardCost(tgt, c) <= tgt.ap);
+    if (!opts.length) return;
+    // 選項不放卡名，對手才不會看到[反擊]牌是哪一張
+    const i: number = yield {
+      kind: 'option', player: tgt.owner,
+      title: `${tgt.name} 被 ${src.name} 指定為攻擊目標：要打出[反擊]牌嗎？`,
+      options: ['不反擊', ...opts.map(c => `打出[反擊]牌（${this.cardCost(tgt, c)} AP）`)],
+    };
+    if (i === 0) return;
+    const card = opts[i - 1];
+    const d = CARD_DEFS[card.defId];
+    const cost = this.cardCost(tgt, card);
+    tgt.hand.splice(tgt.hand.indexOf(card), 1);
+    tgt.playing.push(card);
+    tgt.ap -= cost;
+    this.log(`${tgt.name} 打出【${d.name}】[反擊]（-${cost} AP）`, tgt.owner);
+    this.fx({ t: 'play', unitId: tgt.id, defId: d.id, uid: card.uid });
+    yield* d.react!(this, tgt, { attacker: src, cardId: null });
+    tgt.playing.splice(tgt.playing.indexOf(card), 1);
+    tgt.discard.push(card);
+    this.fx({ t: 'playEnd', unitId: tgt.id, defId: d.id });
+    this.log(`[反擊] ${src.name} 的攻擊被取消`, tgt.owner);
+    throw new ActionCanceled();
+  }
+
+  /**
    * 「打擊自身」：對自己[打擊]（造成傷害並 -1 TP）。
    * 角色可以用 hooks.selfHit 改寫傷害（例如自傷減半、不計算[負傷]的額外增傷）。
    */
@@ -735,16 +825,22 @@ export class Game {
   /** 一次攻擊命中，回傳對 HP 造成的傷害。direct = [直擊]（不減少 TP） */
   attackHit(src: Unit, tgt: Unit, base: number, isStrike: boolean, direct = false, noWoundBonus = false): number {
     if (tgt.life === 'dead') return 0;
+    // 掛在單位身上的狀態造成的攻擊增傷（例如[罪人]）：只加在[打擊]／[直擊]
+    let bonus = 0;
+    for (const s of Object.values(STATUS_DEFS)) if ((tgt.counters[s.id] ?? 0) > 0) bonus += s.attackTakenBonus?.(this, tgt) ?? 0;
+    if (bonus) this.log(`${tgt.name} 身上的狀態讓這次攻擊 +${bonus}`, src.owner);
     if (tgt.life === 'dying') {
-      const dmg = Math.max(0, base - tgt.dmgReduce);
+      const dmg = Math.max(0, base + bonus - tgt.dmgReduce);
       const loss = 1 + Math.floor(dmg / 4);
       this.log(`${tgt.name}（瀕死）受到攻擊，TP -${loss}`, src.owner);
       this.dyingTpLoss(tgt, loss);
       return 0;
     }
     const wounded = !noWoundBonus && this.isWounded(tgt);
-    const dmg = Math.max(0, base + (wounded ? 1 : 0) - tgt.dmgReduce);
-    const extra = [wounded ? '負傷+1' : '', tgt.dmgReduce ? `減傷-${tgt.dmgReduce}` : ''].filter(Boolean).join('、');
+    let dmg = Math.max(0, base + (wounded ? 1 : 0) + bonus - tgt.dmgReduce);
+    const adjusted = CHAR_DEFS[tgt.charId].hooks?.incomingDamage?.(this, tgt, dmg);
+    if (adjusted !== undefined) dmg = Math.max(0, adjusted);
+    const extra = [wounded ? '負傷+1' : '', bonus ? `狀態+${bonus}` : '', tgt.dmgReduce ? `減傷-${tgt.dmgReduce}` : ''].filter(Boolean).join('、');
     this.log(`${tgt.name} 受到 ${dmg} 點傷害${extra ? `（${extra}）` : ''}`, src.owner);
     this.dealHp(tgt, dmg);
     if (isStrike && !direct && tgt.life === 'alive') this.loseTp(tgt, 1);
@@ -754,6 +850,7 @@ export class Game {
   /** 扣 HP（臨時 HP 先扣），歸零進入[瀕死] */
   dealHp(u: Unit, n: number) {
     if (u.life !== 'alive' || n <= 0) return;
+    const wasWounded = this.isWounded(u);
     const total = n;
     const absorbed = Math.min(u.tHp, n);
     u.tHp -= absorbed;
@@ -763,16 +860,32 @@ export class Game {
     CHAR_DEFS[u.charId].hooks?.onHpLoss?.(this, u, n + absorbed);
     if (u.hp <= 0) this.enterDying(u);
     this.linkHp(u, total);
+    if (u.life === 'alive') this.checkWounded(u, wasWounded);
   }
 
   /** 支付 HP 代價（例如[救治]）：不算受到傷害，但算「損失 HP」 */
   payHp(u: Unit, n: number) {
     if (u.life !== 'alive' || n <= 0) return;
+    const wasWounded = this.isWounded(u);
     u.hp -= n;
     this.fx({ t: 'damage', unitId: u.id, amount: n });
     CHAR_DEFS[u.charId].hooks?.onHpLoss?.(this, u, n);
     if (u.hp <= 0) this.enterDying(u);
     this.linkHp(u, n);
+    if (u.life === 'alive') this.checkWounded(u, wasWounded);
+  }
+
+  /**
+   * 重新判斷有沒有「陷入[負傷]」：HP 下降也可能造成[負傷]（hook extraWounded），
+   * 這時也要發出事件並通知 onUnitWounded，和 loseTp 走同一套。
+   */
+  private checkWounded(u: Unit, wasWounded: boolean) {
+    if (wasWounded || !this.isWounded(u)) return;
+    this.log(`${u.name} 陷入[負傷]`, u.owner);
+    this.fx({ t: 'status', unitId: u.id, text: '負傷' });
+    for (const src of this.allUnits()) {
+      if (this.canAct(src)) CHAR_DEFS[src.charId].hooks?.onUnitWounded?.(this, src, u);
+    }
   }
 
   /** HP 綁定（例如異端物的超越此方）：另一名單位也受到同樣的傷害 */
@@ -847,13 +960,8 @@ export class Game {
       for (const src of this.allUnits()) {
         if (src.life === 'alive') CHAR_DEFS[src.charId].hooks?.onUnitCritical?.(this, src, u);
       }
-    } else if (!wasWounded && this.isWounded(u)) {
-      this.log(`${u.name} 陷入[負傷]`, u.owner);
-      this.fx({ t: 'status', unitId: u.id, text: '負傷' });
-      // 「任一單位進入[負傷]」的被動（例如利利安特的 +3 AP）
-      for (const src of this.allUnits()) {
-        if (this.canAct(src)) CHAR_DEFS[src.charId].hooks?.onUnitWounded?.(this, src, u);
-      }
+    } else {
+      this.checkWounded(u, wasWounded);
     }
     this.syncTpLinks();
   }
@@ -869,11 +977,11 @@ export class Game {
     }
   }
 
-  /** 回復 TP（上限＝目前的最大 TP）：例如「+1 TP」 */
+  /** 回復 TP（上限＝目前的最大 TP；TP 沒有上限的角色不受限）：例如「+1 TP」 */
   gainTp(u: Unit, n: number) {
     if (u.life === 'dead' || n <= 0) return;
     const before = u.tp;
-    u.tp = Math.min(this.effTpMax(u), u.tp + n);
+    u.tp = CHAR_DEFS[u.charId].tpUncapped ? u.tp + n : Math.min(this.effTpMax(u), u.tp + n);
     const got = u.tp - before;
     if (!got) return;
     if (u.tp > 0) u.critical = false; // TP 回到 0 以上就不再是[重創]
@@ -882,13 +990,20 @@ export class Game {
     this.syncTpLinks();
   }
 
-  /** 直接[處決]瀕死單位 */
+  /** 直接[處決]瀕死單位（角色可以用 hooks.canBeExecuted 擋下） */
   executeUnit(u: Unit) {
     if (u.life !== 'dying') return;
-    this.dyingTpLoss(u, u.tp);
+    if (CHAR_DEFS[u.charId].hooks?.canBeExecuted?.(this, u) === false) {
+      this.log(`${u.name} 無法被[處決]`, u.owner);
+      this.fx({ t: 'status', unitId: u.id, text: '不受處決' });
+      return;
+    }
+    this.dyingTpLoss(u, u.tp, true);
   }
 
-  private dyingTpLoss(u: Unit, n: number) {
+  /** [瀕死]單位減少 TP。execution = 這是[處決]，不套用角色對 TP 減少量的修正 */
+  private dyingTpLoss(u: Unit, n: number, execution = false) {
+    if (!execution) n = Math.max(0, CHAR_DEFS[u.charId].hooks?.dyingTpLoss?.(this, u, n) ?? n);
     u.tp -= n;
     this.fx({ t: 'tp', unitId: u.id, amount: n });
     if (u.tp <= 0) {
@@ -899,16 +1014,24 @@ export class Game {
     }
   }
 
-  private enterDying(u: Unit) {
+  /** 讓單位直接進入[瀕死]（HP 歸零）：效果造成的「自身陷入[瀕死]」也用這個 */
+  enterDying(u: Unit) {
+    if (u.life !== 'alive') return;
     u.hp = 0;
     u.life = 'dying';
-    u.tp = this.effTpMax(u);
+    u.tp = this.tpRefill(u, this.effTpMax(u));
     u.critical = false;
     u.spBonus = 0;
     u.tHp = 0;
     u.tTp = 0;
     this.log(`${u.name} 進入[瀕死]！`, u.owner);
     this.fx({ t: 'status', unitId: u.id, text: '瀕死' });
+    CHAR_DEFS[u.charId].hooks?.onEnterDying?.(this, u);
+  }
+
+  /** 回合開始／進入[瀕死]的回滿：TP 沒有上限的角色只往上補到目標值，已經超過就保留 */
+  private tpRefill(u: Unit, target: number): number {
+    return CHAR_DEFS[u.charId].tpUncapped ? Math.max(u.tp, target) : target;
   }
 
   // ======================================================================

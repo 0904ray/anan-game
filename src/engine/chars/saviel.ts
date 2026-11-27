@@ -96,6 +96,7 @@ const cards: CardDef[] = [
     *play(g, u) {
       const t = yield* g.chooseEnemy(u, '速拔：選擇打擊目標');
       if (!t) return;
+      yield* g.declareAttackTarget(u, t);
       g.log(`${u.name} [直擊] ${t.name}`, u.owner);
       hit(g, u, t);
       if (g.counter(u, C) !== 1 || t.life === 'dead') return;
@@ -141,6 +142,7 @@ const cards: CardDef[] = [
     *play(g, u) {
       const t = yield* g.chooseEnemy(u, '火輪擊：選擇打擊目標');
       if (!t) return;
+      yield* g.declareAttackTarget(u, t);
       const n = g.counter(u, F);
       g.log(`火輪擊：[焰能] ${n} 層，對 ${t.name} 造成 ${n * 2} 點[直擊]`, u.owner);
       hit(g, u, t, n * 2);

@@ -1,4 +1,4 @@
-import type { Unit, Prompt, CardInst, AttackCtx } from './types';
+import type { Unit, Prompt, CardInst, AttackCtx, DeferTrigger } from './types';
 import type { Game } from './game';
 
 /** 效果是 generator：遇到需要玩家選擇時 yield 一個 Prompt，拿到答案再繼續 */
@@ -8,6 +8,9 @@ export type Eff<T = void> = Generator<Prompt, T, any>;
 export interface HandPaid { unitId: string; n: number }
 /** 打出卡牌時附帶的支付資訊（目前只有手牌費用） */
 export interface PlayPay { handPaid?: HandPaid[] }
+
+/** [反擊]結算時拿到的資訊：是誰在攻擊（attacker），用的是哪張牌（普攻是 null） */
+export interface ReactionCtx { attacker: Unit; cardId: string | null }
 
 export interface CardDef {
   id: string;
@@ -19,8 +22,17 @@ export interface CardDef {
   text: string;          // 打出效果說明
   /** 依情況變動的費用（沒寫就是 cost） */
   costFor?(g: Game, u: Unit): number;
+  /**
+   * [反擊]牌：只能在自己被敵方指定為攻擊目標時打出（照常支付費用），打出後取消這次攻擊。
+   * 自己回合不能主動打出（checkAction 一律擋下）。結算寫在 react。
+   */
+  reaction?: true;
+  react?(g: Game, u: Unit, ctx: ReactionCtx): Eff;
+  /** 這張牌現在能不能打出；回傳字串＝不能，字串就是理由（checkAction 會用） */
+  canPlay?(g: Game, u: Unit): boolean | string;
   discardText?: string;  // (棄置時) 效果說明
-  play(g: Game, u: Unit, pay?: PlayPay): Eff;
+  /** 打出的效果（只有[反擊]牌可以沒有：它們只能透過 react 結算，自己回合打不出） */
+  play?(g: Game, u: Unit, pay?: PlayPay): Eff;
   /** (抽出時) 效果說明：卡面會畫在效果文字前面，寫法和 discardText 一樣 */
   drawText?: string;
   /** (抽出時) 抽到手上的當下結算（含開局抽牌）；不是 generator，不能要求玩家選擇 */
@@ -76,6 +88,8 @@ export interface CharDef {
   rescueCost?(g: Game, u: Unit, ally: Unit): number;
   /** [不屈]：這個單位[瀕死]時依然可以行動，SP 也不會變成 -1 */
   unyielding?: boolean;
+  /** TP 沒有上限：+TP 不受最大 TP 限制；回合開始與進入[瀕死]的回滿改成「至少回到最大 TP」（已經超過就保留） */
+  tpUncapped?: boolean;
   /** 選角畫面的 AT 顯示文字（AT 會變動的角色用，例如「AT X（＝當前 TP）」） */
   atText?: string;
   /** 卡牌費用改用「手牌數」支付（HS）：不花 AP，打出時從我方手牌移除等同費用的牌 */
@@ -122,6 +136,16 @@ export interface CharDef {
     onHpLoss?(g: Game, u: Unit, amount: number): void;
     /** 任一單位進入[負傷]之後；u = 擁有此能力的單位，target = 進入[負傷]的單位 */
     onUnitWounded?(g: Game, u: Unit, target: Unit): void;
+    /** 除了「TP 剩一半以下」，還有別的情況算[負傷]（例如 HP ≤ 5）；會 OR 進 isWounded */
+    extraWounded?(g: Game, u: Unit): boolean;
+    /** 這個單位可不可以被[處決]（回傳 false 就擋下 g.executeUnit；預設可以） */
+    canBeExecuted?(g: Game, u: Unit): boolean;
+    /** 這個單位受到傷害前修正傷害量（已含[負傷]增傷、減傷）；回傳新的傷害 */
+    incomingDamage?(g: Game, u: Unit, dmg: number): number;
+    /** [瀕死]單位要減少 TP 前修正減少量（例如[赦免]）；回傳新的減少量。處決不走這裡 */
+    dyingTpLoss?(g: Game, u: Unit, loss: number): number;
+    /** 這個單位進入[瀕死]的當下（同步函式裡，不能要求選擇）：通常用 g.queueTrigger 排延後觸發 */
+    onEnterDying?(g: Game, u: Unit): void;
     /** 自己[打擊]自己（「打擊自身」）時的傷害設定；沒寫就是一般[打擊]的傷害 */
     selfHit?(g: Game, u: Unit): { power: number; noWoundBonus?: boolean };
     /** 自訂[主動攻擊]的整個流程（不是單體[打擊]的角色用）；回傳 true 表示已經處理完，核心不再選目標 */
@@ -171,6 +195,17 @@ export interface StatusDef {
   onTurnStart?(g: Game, u: Unit): void;
   /** 自己回合結束時（切換到下一位玩家之前） */
   onTurnEnd?(g: Game, u: Unit): void;
+  /** 這個單位受到攻擊時額外增加的傷害（[罪人]）；只加在[打擊]／[直擊]，不加在[直傷] */
+  attackTakenBonus?(g: Game, u: Unit): number;
 }
 export const STATUS_DEFS: Record<string, StatusDef> = {};
 export function registerStatus(s: StatusDef) { STATUS_DEFS[s.id] = s; }
+
+/**
+ * 延後觸發的處理函式。角色用 g.queueTrigger({ kind, by }) 排隊，
+ * 目前的操作結算完之後核心會依序呼叫這裡（可以 yield Prompt 要求玩家選擇）。
+ */
+export const TRIGGERS: Record<string, (g: Game, by: Unit, data: DeferTrigger['data']) => Eff> = {};
+export function registerTrigger(kind: string, fn: (g: Game, by: Unit, data: DeferTrigger['data']) => Eff) {
+  TRIGGERS[kind] = fn;
+}

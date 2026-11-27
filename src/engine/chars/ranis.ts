@@ -116,6 +116,7 @@ const cards: CardDef[] = [
     *play(g, u) {
       const t = yield* g.chooseEnemy(u, '血叉：指定 1 名敵方單位');
       if (!t) return;
+      yield* g.declareAttackTarget(u, t);
       g.log(`${u.name} 血叉：打擊 ${t.name}`, u.owner);
       g.strikeOnce(u, t);
       if (t.life !== 'dead' && t.criticalPrev) {

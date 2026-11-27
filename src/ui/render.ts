@@ -81,7 +81,12 @@ export function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: s
   const cls = ['unit', side, 's' + u.slot, view && view.active !== u.owner ? 'off-turn' : '', u.life !== 'alive' ? u.life : '', targetable ? 'targetable' : '', targetable && u.owner === me ? 'ally' : ''].join(' ');
   const tpMax = g.effTpMax(u);
   const half = Math.floor(tpMax / 2);
-  const tpPips = Array.from({ length: tpMax }, (_, i) => `<div class="pip tp ${i < u.tp ? 'on' : ''} ${u.tp <= half && u.life === 'alive' ? 'low' : ''} ${i === half - 1 ? 'half' : ''}"></div>`).join('');
+  const low = u.tp <= half && u.life === 'alive';
+  // TP 太多（最大 TP > 12）或超過上限（TP 沒有上限的角色）時，菱形會爆版：改成數字＋長條
+  const wideTp = tpMax > 12 || u.tp > tpMax;
+  const tpPips = wideTp
+    ? `<div class="tpbar ${low ? 'low' : ''}"><div class="fill" style="width:${Math.max(0, Math.min(100, u.tp / Math.max(1, tpMax) * 100))}%"></div><i class="half"></i><span>TP ${u.tp} / ${tpMax}</span></div>`
+    : Array.from({ length: tpMax }, (_, i) => `<div class="pip tp ${i < u.tp ? 'on' : ''} ${low ? 'low' : ''} ${i === half - 1 ? 'half' : ''}"></div>`).join('');
   const apPips = Array.from({ length: u.apMax }, (_, i) => `<div class="pip ap ${i < u.ap ? 'on' : ''}"></div>`).join('');
   const counters = (c.counters ?? []).filter(ct => !ct.hidden).filter(ct => !ct.onlyPositive || (u.counters[ct.id] ?? 0) > 0)
     .map(ct => `<span>${esc(ct.name)} <b class="gold">${u.counters[ct.id] ?? 0}</b>${ct.max ? `／${ct.max}` : ''}</span>`).join('');
@@ -109,7 +114,7 @@ export function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: s
     </div>
     <div class="stats">
       <div class="hpbar"><div class="fill" style="width:${hpPct}%"></div><span>HP ${u.hp} / ${u.maxHp}${u.tHp ? ` (+${u.tHp})` : ''}</span></div>
-      <div class="row"><label>TP</label><div class="pips">${tpPips}</div><label class="ap">AP</label><div class="pips">${apPips}</div></div>
+      <div class="row"><label>TP</label>${wideTp ? tpPips : `<div class="pips">${tpPips}</div>`}<label class="ap">AP</label><div class="pips">${apPips}</div></div>
       <div class="chips"><span>AT <b>${g.effAt(u)}</b>・SP <b>${g.effSp(u)}</b></span>${hsChip}${u.tTp ? `<span>臨時 TP <b>+${u.tTp}</b></span>` : ''}${counters}${under}${u.removed.length ? `<span>移除 <b>${u.removed.length}</b></span>` : ''}${side === 'theirs' ? `<span>手牌 <b>${u.hand.length}</b></span>` : ''}</div>
       ${actions ? `<div class="actions">${actions}</div>` : ''}
     </div>

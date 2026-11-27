@@ -81,6 +81,7 @@ const cards: CardDef[] = [
     *play(g, u) {
       const t = yield* g.chooseEnemy(u, '三合：選 1 名敵方單位[打擊]');
       if (!t) return;
+      yield* g.declareAttackTarget(u, t);
       const atk = yield* g.beginAttack(u, 'yae_blade');
       atk.power = Math.max(0, atk.power - 1);
       g.log(`${u.name} 揮刀【三合】[打擊] ${t.name}`, u.owner);
@@ -94,6 +95,7 @@ const cards: CardDef[] = [
     *play(g, u) {
       const t = yield* g.chooseEnemy(u, '真鳴：選 1 名敵方單位[打擊]');
       if (!t) return;
+      yield* g.declareAttackTarget(u, t);
       const atk = yield* g.beginAttack(u, 'yae_hammer');
       g.log(`${u.name} 巨槌【真鳴】[打擊] ${t.name}`, u.owner);
       g.attackStrike(atk, t);
@@ -107,6 +109,7 @@ const cards: CardDef[] = [
     *play(g, u) {
       const t = yield* g.chooseEnemy(u, '長歌：選 1 名敵方單位[打擊]');
       if (!t) return;
+      yield* g.declareAttackTarget(u, t);
       const atk = yield* g.beginAttack(u, 'yae_bow');
       g.log(`${u.name} 放箭【長歌】[打擊] ${t.name}`, u.owner);
       g.attackStrike(atk, t);
@@ -145,6 +148,7 @@ const cards: CardDef[] = [
       const targets = [...g.attackTargets(u), ...g.allies(u).filter(a => a !== u && a.life === 'alive')];
       const t = yield* g.chooseUnit(u.owner, '赤山：選 1 名單位[打擊]（敵方或我方，不含自己）', targets);
       if (!t) return;
+      yield* g.declareAttackTarget(u, t);
       const atk = yield* g.beginAttack(u, 'yae_axe');
       atk.power += 1;
       g.log(`${u.name} 巨斧【赤山】[打擊] ${t.name}`, u.owner);

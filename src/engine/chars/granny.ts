@@ -79,6 +79,7 @@ const cards: CardDef[] = [
     *play(g, u) {
       const t = yield* g.chooseEnemy(u, '飲血：選擇打擊目標');
       if (!t) return;
+      yield* g.declareAttackTarget(u, t);
       g.log(`${u.name} 打擊 ${t.name}`, u.owner);
       const dmg = g.strikeOnce(u, t);
       if (dmg > 0) g.heal(u, dmg);
@@ -89,7 +90,7 @@ const cards: CardDef[] = [
     text: '（吞噬的牌 ≥ 4 張時 -3 AP）打擊 1 名敵方單位，之後選擇：吞噬我方 1 張手牌，或 +3 [暴食]。',
     *play(g, u) {
       const t = yield* g.chooseEnemy(u, '食肉：選擇打擊目標');
-      if (t) { g.log(`${u.name} 打擊 ${t.name}`, u.owner); g.strikeOnce(u, t); }
+      if (t) { yield* g.declareAttackTarget(u, t); g.log(`${u.name} 打擊 ${t.name}`, u.owner); g.strikeOnce(u, t); }
       if (u.life !== 'alive') return;
       const opts = ['+3 暴食'];
       if (handOwners(g, u).length) opts.unshift('吞噬我方 1 張手牌');
@@ -104,6 +105,7 @@ const cards: CardDef[] = [
     *play(g, u) {
       const t = yield* g.chooseEnemy(u, '噬骨：指定 1 名敵方單位');
       if (!t) return;
+      yield* g.declareAttackTarget(u, t);
       let first = true;
       while (t.life !== 'dead' && g.state.winner === null && u.life === 'alive') {
         if (t.life === 'dying' && g.counter(u, G) >= 6) {
