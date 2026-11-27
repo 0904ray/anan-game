@@ -32,6 +32,9 @@ export interface Unit {
   woundedPrev: boolean;  // 自己上一個回合開始時是否[負傷]（「上回合有[負傷]」的判斷用）
   tpMaxDown: number;   // 永久的最大 TP 減少（[墬淵]）；等效最大 TP = tpMax - tpMaxDown
   spBonus: number;     // [居前] 加成
+  hpLink: string | null; // HP 綁定：另一名單位受到的 HP 增減也比照辦理（例如異端物的超越此方）
+  tpLink: string | null; // TP 以另一名單位為基準：每次 TP 變動後同步成對方的數值
+  noActionTurn: boolean; // 本回合已停止行動（例如異端物掃場之後）
 
   deck: CardInst[];
   hand: CardInst[];

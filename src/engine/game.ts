@@ -1,13 +1,15 @@
 import type {
   Action, Answer, CardInst, GameState, PlayerIdx, PlayerState, Prompt, Unit, FxBody, UnitSnap,
 } from './types';
-import { CARD_DEFS, CHAR_DEFS, END_OF_TURN, STATUS_DEFS, type Eff } from './defs';
+import { CARD_DEFS, CHAR_DEFS, END_OF_TURN, STATUS_DEFS, type Eff, type HandPaid, type PlayPay } from './defs';
 
 export interface ApplyResult { ok: boolean; error?: string }
 
 export class Game {
   state: GameState;
   private gen: Eff<any> | null = null;
+  /** 正在把 HP 增減比照到綁定的另一名單位（避免來回遞迴） */
+  private linkBusy = false;
 
   constructor(state: GameState) {
     this.state = state;
@@ -50,6 +52,7 @@ export class Game {
       id: `p${owner}u${slot}`, owner, slot, charId, name: c.name,
       hp: c.hp, maxHp: c.hp, ap: 0, apMax: c.ap, tp: c.tp, tpMax: c.tp, at: c.at, atkCost: c.atkCost, baseSp: c.sp,
       life: 'alive', critical: false, criticalPrev: false, woundedPrev: false, tpMaxDown: 0, spBonus: 0,
+      hpLink: null, tpLink: null, noActionTurn: false,
       deck, hand: [], discard: [], playing: [], under: [], removed: [],
       attacksThisTurn: 0, advanced: false, buyUsedThisTurn: false,
       dmgReduce: 0, noWound: false, noTpLoss: false, halfTpNext: false, tHp: 0, tTp: 0,
@@ -130,6 +133,11 @@ export class Game {
   effAt(u: Unit): number { return u.at + (CHAR_DEFS[u.charId].hooks?.atBonus?.(this, u) ?? 0); }
   /** 卡牌實際費用 */
   cardCost(u: Unit, defId: string): number { const d = CARD_DEFS[defId]; return Math.max(0, d.costFor ? d.costFor(this, u) : d.cost); }
+  /** 可以用來支付手牌費用的牌數（自己＋活著的隊友） */
+  handAvail(u: Unit): number {
+    const mate = this.teammate(u);
+    return u.hand.length + (mate.life === 'alive' ? mate.hand.length : 0);
+  }
   counter(u: Unit, id: string): number { return u.counters[id] ?? 0; }
   addCounter(u: Unit, id: string, n: number) {
     u.counters[id] = (u.counters[id] ?? 0) + n;
@@ -226,11 +234,16 @@ export class Game {
     const u = this.safeUnit(a.unitId);
     if (!u || u.owner !== player) return '不是你的角色';
     if (!this.canAct(u)) return '這個角色無法行動';
+    if (u.noActionTurn) return '這回合已停止行動';
     switch (a.type) {
       case 'play': {
         const c = u.hand.find(x => x.uid === a.cardUid);
         if (!c) return '手牌中沒有這張牌';
-        if (u.ap < this.cardCost(u, c.defId)) return 'AP 不足';
+        const cost = this.cardCost(u, c.defId);
+        if (CHAR_DEFS[u.charId].costAs === 'hand') {
+          // 打出的這張牌本身不能拿來付自己的費用
+          if (this.handAvail(u) - 1 < cost) return '手牌不足';
+        } else if (u.ap < cost) return 'AP 不足';
         return null;
       }
       case 'playUnder': {
@@ -246,7 +259,7 @@ export class Game {
         if (h?.canAttack && !h.canAttack(this, u)) return '沒有足夠的攻擊資源';
         if (u.attacksThisTurn >= (h?.attackLimit?.(this, u) ?? 1)) return '這回合已經主動攻擊過了';
         if (u.ap < (h?.attackApCost?.(this, u) ?? u.atkCost)) return 'AP 不足';
-        if (!this.attackTargets(u).length) return '沒有可攻擊的目標';
+        if (!h?.attack && !this.attackTargets(u).length) return '沒有可攻擊的目標';
         return null;
       }
       case 'advance':
@@ -286,10 +299,18 @@ export class Game {
         u.playing.push(card);
         const d = CARD_DEFS[card.defId];
         const cost = this.cardCost(u, card.defId);
-        u.ap -= cost;
-        this.log(`${u.name} 打出【${d.name}】（-${cost} AP）`, u.owner);
         this.fx({ t: 'play', unitId: u.id, defId: d.id, uid: card.uid });
-        yield* d.play(this, u);
+        let pay: PlayPay | undefined;
+        if (CHAR_DEFS[u.charId].costAs === 'hand') {
+          // 手牌費用：從自己或隊友的手牌移除（打出這張牌已經離開手牌）
+          const paid = yield* this.payHandCost(u, cost);
+          pay = { handPaid: paid };
+          this.log(`${u.name} 打出【${d.name}】（-${cost} HS）`, u.owner);
+        } else {
+          u.ap -= cost;
+          this.log(`${u.name} 打出【${d.name}】（-${cost} AP）`, u.owner);
+        }
+        yield* d.play(this, u, pay);
         u.playing.splice(u.playing.indexOf(card), 1);
         const rm = typeof d.removeAfterPlay === 'function' ? d.removeAfterPlay(this, u) : !!d.removeAfterPlay;
         if (rm) u.removed.push(card); // 使用後移出牌局
@@ -320,6 +341,7 @@ export class Game {
         u.ap -= h?.attackApCost?.(this, u) ?? u.atkCost;
         u.attacksThisTurn++;
         h?.onAttack?.(this, u);
+        if (h?.attack) { yield* h.attack(this, u); return; }
         const t = yield* this.chooseEnemy(u, `${u.name} 普攻：選擇目標`);
         if (!t) return;
         this.log(`${u.name} 普攻 ${t.name}`, u.owner);
@@ -380,7 +402,7 @@ export class Game {
       u.criticalPrev = u.critical; // 記下「上回合是否處於[重創]」，再重算
       u.woundedPrev = this.isWounded(u); // 記下「上回合是否[負傷]」（用回滿 TP 之前的數值）
       u.tHp = 0; u.tTp = 0; u.dmgReduce = 0; u.noWound = false; u.noTpLoss = false;
-      u.spBonus = 0; u.attacksThisTurn = 0; u.advanced = false; u.buyUsedThisTurn = false;
+      u.spBonus = 0; u.attacksThisTurn = 0; u.advanced = false; u.buyUsedThisTurn = false; u.noActionTurn = false;
       if (u.life === 'alive') {
         if (u.halfTpNext) {
           u.tp = Math.ceil(this.effTpMax(u) / 2);
@@ -394,6 +416,7 @@ export class Game {
         u.ap = this.canAct(u) ? Math.min(2 * ps.turnCount, u.apMax) : 0;
       }
     }
+    this.syncTpLinks(); // TP 綁定（例如異端物的超越此方）跟著隊友的數值
     this.fx({ t: 'turn', player: p });
     // 掛在單位身上的狀態：自己回合開始（例如[聖環]解除）
     for (const u of ps.units) {
@@ -401,8 +424,19 @@ export class Game {
     }
     for (const u of ps.units) {
       if (!this.canAct(u)) continue;
+      // 我方角色的通用 hook 可以先取代這次[起手抽牌]（例如異端物的超越此方改成檢索）
+      let replaced = false;
+      for (const a of this.allies(u)) {
+        if (a.life === 'dead') continue;
+        const hook = CHAR_DEFS[a.charId].hooks?.onAllyStartDraw;
+        if (hook) {
+          const r = yield* hook(this, a, u);
+          if (r) { replaced = true; break; }
+        }
+      }
+      if (replaced) continue;
       CHAR_DEFS[u.charId].hooks?.onTurnStartBeforeDraw?.(this, u);
-      this.draw(u, 1, true);
+      this.draw(u, CHAR_DEFS[u.charId].hooks?.turnStartDraw?.(this, u) ?? 1, true);
     }
   }
 
@@ -515,6 +549,51 @@ export class Game {
     return k;
   }
 
+  /**
+   * 支付手牌費用（異端物）：從自己或活著的隊友的手牌[移除]等同費用的牌。
+   * 兩邊都有牌時先問要從誰付，再一次選牌；回傳每個單位各付了幾張。
+   */
+  private *payHandCost(u: Unit, n: number): Eff<HandPaid[]> {
+    const out: HandPaid[] = [];
+    let left = n;
+    while (left > 0) {
+      const mate = this.teammate(u);
+      const pool = [u, mate].filter(x => x.life === 'alive' && x.hand.length > 0);
+      if (!pool.length) break;
+      let payer = pool[0];
+      if (pool.length > 1) {
+        const pick: number = yield {
+          kind: 'option', player: u.owner, title: `支付 ${left} HS：要從誰的手牌移除？`,
+          options: pool.map(x => `${x.name}（手牌 ${x.hand.length}）`),
+        };
+        payer = pool[pick];
+      }
+      const other = payer === u ? mate : u;
+      const otherAvail = other.life === 'alive' ? other.hand.length : 0;
+      const max = Math.min(left, payer.hand.length);
+      const min = Math.min(max, Math.max(1, left - otherAvail));
+      const picks = yield* this.chooseHandCards(payer, `支付 ${left} HS：選 ${payer.name} 的 ${min === max ? min : `${min}～${max}`} 張手牌移除`, min, max);
+      if (!picks.length) break;
+      const k = this.millHand(payer, picks);
+      if (k <= 0) break;
+      left -= k;
+      const rec = out.find(x => x.unitId === payer.id);
+      if (rec) rec.n += k;
+      else out.push({ unitId: payer.id, n: k });
+    }
+    this.handRemoved(u, out);
+    return out;
+  }
+
+  /** 一批手牌被[移除]之後，通知我方的通用 hook（例如異端物本回合首次移除手牌時讓對應單位抽牌） */
+  handRemoved(by: Unit, removals: HandPaid[]) {
+    if (!removals.length) return;
+    for (const a of this.allies(by)) {
+      if (a.life === 'dead') continue;
+      CHAR_DEFS[a.charId].hooks?.onHandRemoved?.(this, a, removals);
+    }
+  }
+
   /** 把指定的手牌移出牌局（不進棄牌區） */
   removeHandCards(u: Unit, uids: string[]): number {
     let k = 0;
@@ -601,6 +680,7 @@ export class Game {
   /** 扣 HP（臨時 HP 先扣），歸零進入[瀕死] */
   dealHp(u: Unit, n: number) {
     if (u.life !== 'alive' || n <= 0) return;
+    const total = n;
     const absorbed = Math.min(u.tHp, n);
     u.tHp -= absorbed;
     n -= absorbed;
@@ -608,14 +688,27 @@ export class Game {
     this.fx({ t: 'damage', unitId: u.id, amount: n + absorbed });
     CHAR_DEFS[u.charId].hooks?.onHpLoss?.(this, u, n + absorbed);
     if (u.hp <= 0) this.enterDying(u);
+    this.linkHp(u, total);
   }
 
   /** 支付 HP 代價（例如[救治]）：不算受到傷害，但算「損失 HP」 */
   payHp(u: Unit, n: number) {
-    if (n <= 0) return;
+    if (u.life !== 'alive' || n <= 0) return;
     u.hp -= n;
     this.fx({ t: 'damage', unitId: u.id, amount: n });
     CHAR_DEFS[u.charId].hooks?.onHpLoss?.(this, u, n);
+    if (u.hp <= 0) this.enterDying(u);
+    this.linkHp(u, n);
+  }
+
+  /** HP 綁定（例如異端物的超越此方）：另一名單位也受到同樣的傷害 */
+  private linkHp(u: Unit, n: number) {
+    if (this.linkBusy || n <= 0 || !u.hpLink) return;
+    const mate = this.unit(u.hpLink);
+    if (mate.life !== 'alive') return;
+    this.linkBusy = true;
+    this.dealHp(mate, n);
+    this.linkBusy = false;
   }
 
   /**
@@ -628,6 +721,15 @@ export class Game {
     const before = u.hp;
     u.hp = Math.min(u.maxHp, u.hp + n);
     const got = u.hp - before;
+    // HP 綁定：另一名單位也回復同樣的量（不重複套用對方的治療加成）
+    if (got > 0 && !this.linkBusy && u.hpLink) {
+      const mate = this.unit(u.hpLink);
+      if (mate.life === 'alive') {
+        this.linkBusy = true;
+        this.heal(mate, got, true);
+        this.linkBusy = false;
+      }
+    }
     if (!got) return; // 滿血就不記錄
     this.log(`${u.name} 回復 ${got} HP`, u.owner);
     this.fx({ t: 'heal', unitId: u.id, amount: got });
@@ -679,6 +781,18 @@ export class Game {
         if (this.canAct(src)) CHAR_DEFS[src.charId].hooks?.onUnitWounded?.(this, src, u);
       }
     }
+    this.syncTpLinks();
+  }
+
+  /** TP 綁定（例如異端物的超越此方）：TP 以另一名單位為基準，每次增減後同步 */
+  syncTpLinks() {
+    for (const x of this.allUnits()) {
+      if (!x.tpLink || x.life !== 'alive') continue;
+      const p = this.unit(x.tpLink);
+      if (p.life === 'dead') continue;
+      x.tpMax = p.tpMax;
+      x.tp = Math.min(this.effTpMax(x), p.tp);
+    }
   }
 
   /** 回復 TP（上限＝目前的最大 TP）：例如「+1 TP」 */
@@ -691,6 +805,7 @@ export class Game {
     if (u.tp > 0) u.critical = false; // TP 回到 0 以上就不再是[重創]
     this.log(`${u.name} 回復 ${got} TP`, u.owner);
     this.fx({ t: 'status', unitId: u.id, text: `TP+${got}` });
+    this.syncTpLinks();
   }
 
   /** 直接[處決]瀕死單位 */
@@ -737,6 +852,53 @@ export class Game {
   *chooseAlly(u: Unit, title: string): Eff<Unit | null> {
     return yield* this.chooseUnit(u.owner, title, this.state.players[u.owner].units.filter(x => x.life === 'alive'));
   }
+  /** 檢索：從牌堆選 1 張牌加入手牌，然後洗牌（同名的牌只列一次） */
+  *searchDeck(u: Unit, title: string): Eff<CardInst | null> {
+    if (u.life === 'dead' || !u.deck.length) return null;
+    const opts: { uid: string; name: string }[] = [];
+    const seen = new Set<string>();
+    for (let i = u.deck.length - 1; i >= 0; i--) {
+      const c = u.deck[i];
+      if (seen.has(c.defId)) continue;
+      seen.add(c.defId);
+      opts.push({ uid: c.uid, name: CARD_DEFS[c.defId].name });
+    }
+    const pick: number = opts.length > 1
+      ? yield { kind: 'option', player: u.owner, title, options: opts.map(o => o.name) }
+      : 0;
+    const i = u.deck.findIndex(c => c.uid === opts[pick].uid);
+    if (i < 0) return null;
+    const card = u.deck.splice(i, 1)[0];
+    u.hand.push(card);
+    this.shuffle(u.deck);
+    this.log(`${u.name} 從牌堆檢索【${CARD_DEFS[card.defId].name}】`, u.owner);
+    this.fx({ t: 'draw', unitId: u.id, uid: card.uid });
+    return card;
+  }
+
+  /** 檢索棄牌區：從棄牌區選 1 張牌加入手牌（同名的牌只列一次，不洗牌） */
+  *searchDiscard(u: Unit, title: string): Eff<CardInst | null> {
+    if (u.life === 'dead' || !u.discard.length) return null;
+    const opts: { uid: string; name: string }[] = [];
+    const seen = new Set<string>();
+    for (let i = u.discard.length - 1; i >= 0; i--) {
+      const c = u.discard[i];
+      if (seen.has(c.defId)) continue;
+      seen.add(c.defId);
+      opts.push({ uid: c.uid, name: CARD_DEFS[c.defId].name });
+    }
+    const pick: number = opts.length > 1
+      ? yield { kind: 'option', player: u.owner, title, options: opts.map(o => o.name) }
+      : 0;
+    const i = u.discard.findIndex(c => c.uid === opts[pick].uid);
+    if (i < 0) return null;
+    const card = u.discard.splice(i, 1)[0];
+    u.hand.push(card);
+    this.log(`${u.name} 從棄牌區檢索【${CARD_DEFS[card.defId].name}】`, u.owner);
+    this.fx({ t: 'draw', unitId: u.id, uid: card.uid });
+    return card;
+  }
+
   *chooseHandCards(u: Unit, title: string, min: number, max: number): Eff<string[]> {
     const n = u.hand.length;
     min = Math.min(min, n);
