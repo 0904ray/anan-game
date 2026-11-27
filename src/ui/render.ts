@@ -75,10 +75,16 @@ export function badges(g: Game, u: Unit): string {
   return b.join('');
 }
 
+/** 嘲諷標記：紅色往下指的雙箭頭（敵方的攻擊會先落在這裡） */
+const TAUNT_SVG = '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 6 L20 18 L32 6" /><path d="M8 18 L20 30 L32 18" /></svg>';
+
 export function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: string[], myTurn: boolean): string {
   const c = CHAR_DEFS[u.charId];
   const targetable = targetIds.includes(u.id);
-  const cls = ['unit', side, 's' + u.slot, view && view.active !== u.owner ? 'off-turn' : '', u.life !== 'alive' ? u.life : '', targetable ? 'targetable' : '', targetable && u.owner === me ? 'ally' : ''].join(' ');
+  // SP 看得出來：SP > 0（優先被攻擊）頭上有紅色嘲諷標記，SP < 0（不容易被指定）頭像罩一層霧
+  const sp = u.life === 'dead' ? 0 : g.effSp(u);
+  const spCls = sp > 0 ? 'sp-up' : sp < 0 ? 'sp-down' : '';
+  const cls = ['unit', side, 's' + u.slot, view && view.active !== u.owner ? 'off-turn' : '', u.life !== 'alive' ? u.life : '', targetable ? 'targetable' : '', targetable && u.owner === me ? 'ally' : '', spCls].join(' ');
   const tpMax = g.effTpMax(u);
   const half = Math.floor(tpMax / 2);
   const low = u.tp <= half && u.life === 'alive';
@@ -108,6 +114,8 @@ export function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: s
   <div class="${cls}" data-unit="${u.id}">
     <div class="portrait tilt" data-unit-click="${u.id}" style="--hue:${hue(u.charId)};--theme:${themeOf(u.charId)};${artToneOf(u.charId)}">
       <div class="art"><span class="initial">${esc(CHAR_DEFS[u.charId].name[0])}</span><img src="${portraitOf(u)}"></div>
+      ${sp < 0 ? '<div class="fog"><i></i><i></i></div>' : ''}
+      ${sp > 0 ? `<div class="taunt-ring"></div><div class="taunt" title="SP ${sp}：敵方會優先攻擊這個單位">${TAUNT_SVG}<b>SP +${sp}</b></div>` : ''}
       <div class="badges">${badges(g, u)}</div>
       <div class="nameplate">${esc(u.name)}</div>
       <div class="shine"></div>
@@ -115,7 +123,7 @@ export function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: s
     <div class="stats">
       <div class="hpbar"><div class="fill" style="width:${hpPct}%"></div><span>HP ${u.hp} / ${u.maxHp}${u.tHp ? ` (+${u.tHp})` : ''}</span></div>
       <div class="row"><label>TP</label>${wideTp ? tpPips : `<div class="pips">${tpPips}</div>`}<label class="ap">AP</label><div class="pips">${apPips}</div></div>
-      <div class="chips"><span>AT <b>${g.effAt(u)}</b>・SP <b>${g.effSp(u)}</b></span>${hsChip}${u.tTp ? `<span>臨時 TP <b>+${u.tTp}</b></span>` : ''}${counters}${under}${u.removed.length ? `<span>移除 <b>${u.removed.length}</b></span>` : ''}${side === 'theirs' ? `<span>手牌 <b>${u.hand.length}</b></span>` : ''}</div>
+      <div class="chips"><span>AT <b>${g.effAt(u)}</b>・SP <b class="${spCls}">${g.effSp(u)}</b></span>${hsChip}${u.tTp ? `<span>臨時 TP <b>+${u.tTp}</b></span>` : ''}${counters}${under}${u.removed.length ? `<span>移除 <b>${u.removed.length}</b></span>` : ''}${side === 'theirs' ? `<span>手牌 <b>${u.hand.length}</b></span>` : ''}</div>
       ${actions ? `<div class="actions">${actions}</div>` : ''}
     </div>
   </div>`;

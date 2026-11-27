@@ -32,6 +32,31 @@
 .unit.dead .stats { opacity: .4; }
 
 .unit.targetable .portrait { animation: target 1s infinite; cursor: crosshair; }
+/* SP 的視覺提示（render.ts unitHtml）
+   SP > 0：頭像右上角紅色嘲諷標記（往下指的雙箭頭，上下浮動）＋一圈紅色脈動外框——敵方只能先打 SP 最高的
+   SP < 0：頭像罩一層緩緩飄動的霧、立繪變淡變糊——躲在後面，不容易被指定 */
+.portrait .taunt-ring { position: absolute; inset: -7px; border-radius: 16px; border: 3px solid rgba(255, 70, 50, .85); pointer-events: none; animation: taunt-ring 1.6s ease-in-out infinite; }
+@keyframes taunt-ring { 0%, 100% { box-shadow: 0 0 10px rgba(255, 60, 40, .55); opacity: .75; } 50% { box-shadow: 0 0 26px rgba(255, 60, 40, .9); opacity: 1; } }
+.portrait .taunt { position: absolute; top: -22px; right: -24px; width: 68px; height: 68px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 50% 35%, #ff6a4f, #a3150e 70%); border: 3px solid #ffd2a8; box-shadow: 0 0 18px rgba(255, 60, 40, .9), 0 4px 10px rgba(0, 0, 0, .6);
+  transform: translateZ(30px); animation: taunt-bob 1.2s ease-in-out infinite; pointer-events: auto; z-index: 3; }
+.portrait .taunt svg { width: 34px; height: 34px; fill: none; stroke: #fff4e6; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; margin-top: 2px; }
+.portrait .taunt b { font-size: 14px; line-height: 1; color: #fff4e6; margin-top: -2px; letter-spacing: .5px; }
+@keyframes taunt-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 5px; } }
+.portrait .fog { position: absolute; inset: 0; border-radius: 9px; overflow: hidden; pointer-events: none; transform: translateZ(10px);
+  background: linear-gradient(180deg, rgba(190, 200, 215, .28), rgba(150, 160, 180, .5)); }
+.portrait .fog i { position: absolute; inset: -40% -60%; background:
+  radial-gradient(ellipse 30% 18% at 30% 40%, rgba(225, 232, 242, .55), transparent 70%),
+  radial-gradient(ellipse 34% 20% at 70% 65%, rgba(215, 225, 238, .5), transparent 70%),
+  radial-gradient(ellipse 26% 16% at 50% 85%, rgba(230, 236, 245, .45), transparent 70%);
+  animation: fog-drift 9s ease-in-out infinite alternate; }
+.portrait .fog i + i { animation-duration: 13s; animation-direction: alternate-reverse; opacity: .8; }
+@keyframes fog-drift { from { transform: translateX(-12%); } to { transform: translateX(12%); } }
+.unit.sp-down .portrait .art img { filter: blur(1.5px) saturate(.55) brightness(.85) var(--art-tone, contrast(1)); }
+.unit.sp-down .portrait { border-color: #7d8796; }
+.chips b.sp-up { color: #ff7a5c; }
+.chips b.sp-down { color: #a9b8cc; }
+
 @keyframes target { 0%, 100% { box-shadow: 0 0 0 4px #ff5b4a, 0 0 30px #ff5b4a; } 50% { box-shadow: 0 0 0 7px #ffb14a, 0 0 46px #ffb14a; } }
 .unit.targetable.ally .portrait { animation-name: target-ally; }
 @keyframes target-ally { 0%, 100% { box-shadow: 0 0 0 4px #4ad6ff, 0 0 30px #4ad6ff; } 50% { box-shadow: 0 0 0 7px #8affc6, 0 0 46px #8affc6; } }
@@ -144,3 +169,4 @@
 .hint2 { font-size: 18px; color: #a8957a; }
 .underlist .item { padding: 8px 16px; border-radius: 10px; border: 2px solid #6b5230; background: #2a1f15; font-size: 22px; }
 .showcard .cost.hs { font-size: 10px; letter-spacing: -0.5px; }
+.unit.sp-down.off-turn .portrait .art img { filter: blur(1.5px) saturate(.55) var(--tone-unit-idle) var(--art-tone, contrast(1)); }
