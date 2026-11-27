@@ -1,5 +1,5 @@
 import type {
-  Action, Answer, CardInst, GameState, PlayerIdx, PlayerState, Prompt, Unit, FxBody, UnitSnap,
+  Action, Answer, AttackCtx, CardInst, GameState, PlayerIdx, PlayerState, Prompt, Unit, FxBody, UnitSnap,
 } from './types';
 import { CARD_DEFS, CHAR_DEFS, END_OF_TURN, STATUS_DEFS, type Eff, type HandPaid, type PlayPay } from './defs';
 
@@ -131,8 +131,16 @@ export class Game {
   }
   /** 實際攻擊力（含角色能力加成） */
   effAt(u: Unit): number { return u.at + (CHAR_DEFS[u.charId].hooks?.atBonus?.(this, u) ?? 0); }
-  /** 卡牌實際費用 */
-  cardCost(u: Unit, defId: string): number { const d = CARD_DEFS[defId]; return Math.max(0, d.costFor ? d.costFor(this, u) : d.cost); }
+  /**
+   * 卡牌實際費用。傳牌的唯一編號（CardInst）時，會加上那張牌自己的費用修正（CardInst.costMod，例如無方 -1 AP）。
+   */
+  cardCost(u: Unit, card: CardInst | string): number {
+    const defId = typeof card === 'string' ? card : card.defId;
+    const d = CARD_DEFS[defId];
+    const base = d.costFor ? d.costFor(this, u) : d.cost;
+    const mod = typeof card === 'string' ? 0 : (card.costMod ?? 0);
+    return Math.max(0, base + mod);
+  }
   /** 可以用來支付手牌費用的牌數（自己＋活著的隊友） */
   handAvail(u: Unit): number {
     const mate = this.teammate(u);
@@ -239,7 +247,7 @@ export class Game {
       case 'play': {
         const c = u.hand.find(x => x.uid === a.cardUid);
         if (!c) return '手牌中沒有這張牌';
-        const cost = this.cardCost(u, c.defId);
+        const cost = this.cardCost(u, c);
         if (CHAR_DEFS[u.charId].costAs === 'hand') {
           // 打出的這張牌本身不能拿來付自己的費用
           if (this.handAvail(u) - 1 < cost) return '手牌不足';
@@ -250,7 +258,7 @@ export class Game {
         if (!CHAR_DEFS[u.charId].canPlayUnder) return '這個角色不能使用下方的牌';
         const c = u.under.find(x => x.uid === a.cardUid);
         if (!c) return '沒有這張牌';
-        if (u.ap < this.cardCost(u, c.defId)) return 'AP 不足';
+        if (u.ap < this.cardCost(u, c)) return 'AP 不足';
         return null;
       }
       case 'attack': {
@@ -301,7 +309,7 @@ export class Game {
       case 'playUnder': {
         const u = this.unit(a.unitId);
         const idx = u.under.findIndex(x => x.uid === a.cardUid);
-        const cost = this.cardCost(u, u.under[idx].defId); // 先算費用（拿走後吞噬數會變少）
+        const cost = this.cardCost(u, u.under[idx]); // 先算費用（拿走後吞噬數會變少）
         const card = u.under.splice(idx, 1)[0];
         u.playing.push(card);
         const d = CARD_DEFS[card.defId];
@@ -324,9 +332,11 @@ export class Game {
         if (h?.attack) { yield* h.attack(this, u); return; }
         const t = yield* this.chooseEnemy(u, `${u.name} 普攻：選擇目標`);
         if (!t) return;
+        const atk = yield* this.beginAttack(u);
         this.log(`${u.name} 普攻 ${t.name}`, u.owner);
-        const dmg = this.strikeOnce(u, t, h?.strikeOpts?.(this, u));
+        const dmg = this.attackStrike(atk, t);
         h?.onAttackHit?.(this, u, t, dmg);
+        yield* this.endAttack(atk);
         return;
       }
       case 'advance': {
@@ -504,15 +514,20 @@ export class Game {
     if (had) this.fx({ t: 'reshuffle', unitId: u.id });
   }
 
-  /** [移除]：從牌組最上方把 n 張牌放進棄牌區（「從牌組移除 N 張牌至棄牌區」）：不算抽牌、不算棄牌 */
+  /** [移除]：從牌組最上方把 n 張牌放進棄牌區（「從牌組移除 N 張牌至棄牌區」）：不算抽牌、不算棄牌。回傳被移除的牌 */
+  millTop(u: Unit, n: number): CardInst[] {
+    const out: CardInst[] = [];
+    for (let i = 0; i < n && u.deck.length; i++) out.push(u.deck.pop()!);
+    if (!out.length) return out;
+    u.discard.push(...out);
+    this.log(`${u.name} 從牌組移除 ${out.length} 張牌至棄牌區`, u.owner);
+    this.fx({ t: 'mill', unitId: u.id, n: out.length });
+    return out;
+  }
+
+  /** 同 millTop，回傳張數 */
   mill(u: Unit, n: number): number {
-    let k = 0;
-    for (let i = 0; i < n && u.deck.length; i++) { u.discard.push(u.deck.pop()!); k++; }
-    if (k) {
-      this.log(`${u.name} 從牌組移除 ${k} 張牌至棄牌區`, u.owner);
-      this.fx({ t: 'mill', unitId: u.id, n: k });
-    }
-    return k;
+    return this.millTop(u, n).length;
   }
 
   /** [移除]手牌至棄牌區：直接放進棄牌區，不算「棄牌」（不觸發棄牌相關的被動和(棄置時)） */
@@ -568,7 +583,7 @@ export class Game {
     const card = u.hand.splice(idx, 1)[0];
     u.playing.push(card);
     const d = CARD_DEFS[card.defId];
-    const cost = this.cardCost(u, card.defId);
+    const cost = this.cardCost(u, card);
     this.fx({ t: 'play', unitId: u.id, defId: d.id, uid: card.uid });
     let pay: PlayPay | undefined;
     if (CHAR_DEFS[u.charId].costAs === 'hand') {
@@ -602,6 +617,16 @@ export class Game {
     return k;
   }
 
+  /** 把 1 張手牌放到牌庫頂（下一個抽到的就是它）：不算棄牌、也不算[洗牌] */
+  putHandOnDeckTop(u: Unit, uid: string): boolean {
+    const i = u.hand.findIndex(c => c.uid === uid);
+    if (i < 0) return false;
+    const card = u.hand.splice(i, 1)[0];
+    u.deck.push(card); // 牌庫頂＝陣列尾端（draw 用 pop）
+    this.log(`${u.name} 把【${CARD_DEFS[card.defId].name}】放到牌庫頂`, u.owner);
+    return true;
+  }
+
   /** 從牌組最上方把 n 張牌移出牌局 */
   removeDeckTop(u: Unit, n: number): number {
     let k = 0;
@@ -623,19 +648,64 @@ export class Game {
    * opts.direct = [直擊]：傷害照算，但不會減少對方 TP
    * opts.power = 用指定數值取代 AT（例如「造成焰能數 ×2 的直擊」）
    */
-  strikeOnce(src: Unit, tgt: Unit, opts?: { direct?: boolean; power?: number }): number {
+  strikeOnce(src: Unit, tgt: Unit, opts?: { direct?: boolean; power?: number; fixed?: boolean }): number {
     if (tgt.life === 'dead') return 0;
     this.fx({ t: 'strike', unitId: src.id, targetId: tgt.id });
-    const dmg = this.attackHit(src, tgt, opts?.power ?? this.effAt(src), true, opts?.direct);
+    const power = opts?.power ?? this.effAt(src);
+    let dmg: number;
+    if (opts?.fixed) {
+      // [直傷]：固定傷害，不吃[負傷]增傷、減傷，也不扣 TP
+      const before = tgt.hp;
+      this.log(`${tgt.name} 受到 ${power} 點[直傷]`, src.owner);
+      this.dealHp(tgt, power);
+      dmg = Math.max(0, before - tgt.hp);
+    } else {
+      dmg = this.attackHit(src, tgt, power, true, opts?.direct);
+    }
     CHAR_DEFS[src.charId].hooks?.onStrike?.(this, src);
     return dmg;
   }
-  strike(src: Unit, tgt: Unit, times: number, opts?: { direct?: boolean; power?: number }) {
+  strike(src: Unit, tgt: Unit, times: number, opts?: { direct?: boolean; power?: number; fixed?: boolean }) {
     for (let i = 0; i < times; i++) {
       if (tgt.life === 'dead' || this.state.winner !== null) break;
       this.strikeOnce(src, tgt, opts);
     }
   }
+
+  // ======================================================================
+  // 「攻擊」的通用流程：普攻和攻擊牌（有 CardDef.tag 的牌）都走這裡
+  //   一次普攻、或打出 1 張攻擊牌，各算 1 次攻擊；傷害前後都可以用角色 hook 修正／追加效果。
+  // ======================================================================
+  /** 開始一次攻擊：建立這次攻擊的設定（含 strikeOpts），並套用角色傷害前的效果 */
+  *beginAttack(u: Unit, cardId?: string): Eff<AttackCtx> {
+    const h = CHAR_DEFS[u.charId].hooks;
+    const so = h?.strikeOpts?.(this, u);
+    const atk: AttackCtx = {
+      u, cardId: cardId ?? null, tag: cardId ? (CARD_DEFS[cardId]?.tag ?? null) : null,
+      power: so?.power ?? this.effAt(u), direct: !!so?.direct, fixed: false,
+      target: null, dealt: 0, data: {},
+    };
+    const r = h?.onAttackStart?.(this, u, atk);
+    if (r) yield* r;
+    return atk;
+  }
+  /** 用這次攻擊的設定[打擊]目標，並把實際造成的 HP 傷害累計到 atk.dealt */
+  attackStrike(atk: AttackCtx, tgt: Unit, times = 1): number {
+    let total = 0;
+    for (let i = 0; i < times; i++) {
+      if (tgt.life === 'dead' || this.state.winner !== null) break;
+      if (!atk.target) atk.target = tgt;
+      total += this.strikeOnce(atk.u, tgt, { direct: atk.direct, power: atk.power, fixed: atk.fixed });
+    }
+    atk.dealt += total;
+    return total;
+  }
+  /** 攻擊的主要傷害結算完：讓角色追加效果（例如[破]） */
+  *endAttack(atk: AttackCtx): Eff {
+    const r = CHAR_DEFS[atk.u.charId].hooks?.onAttackEnd?.(this, atk.u, atk);
+    if (r) yield* r;
+  }
+
   /**
    * 「打擊自身」：對自己[打擊]（造成傷害並 -1 TP）。
    * 角色可以用 hooks.selfHit 改寫傷害（例如自傷減半、不計算[負傷]的額外增傷）。
@@ -900,8 +970,8 @@ export class Game {
    * 從我方好幾個單位的手牌一起選牌（畫面把能選的牌全部高亮，可以混著選，不用先問「選誰的」）。
    * 能選的牌剛好等於要選的張數時直接全選，不問。回傳選到的 uid；用 g.cardOwner() 找每張牌是誰的。
    */
-  *chooseCardsFrom(units: Unit[], title: string, min: number, max: number): Eff<string[]> {
-    const uids = units.filter(x => x.life !== 'dead').flatMap(x => x.hand.map(c => c.uid));
+  *chooseCardsFrom(units: Unit[], title: string, min: number, max: number, filter?: (c: CardInst) => boolean): Eff<string[]> {
+    const uids = units.filter(x => x.life !== 'dead').flatMap(x => x.hand.filter(c => !filter || filter(c)).map(c => c.uid));
     const n = uids.length;
     min = Math.min(min, n);
     max = Math.min(max, n);

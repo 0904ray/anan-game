@@ -83,7 +83,8 @@ export function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: s
   const half = Math.floor(tpMax / 2);
   const tpPips = Array.from({ length: tpMax }, (_, i) => `<div class="pip tp ${i < u.tp ? 'on' : ''} ${u.tp <= half && u.life === 'alive' ? 'low' : ''} ${i === half - 1 ? 'half' : ''}"></div>`).join('');
   const apPips = Array.from({ length: u.apMax }, (_, i) => `<div class="pip ap ${i < u.ap ? 'on' : ''}"></div>`).join('');
-  const counters = (c.counters ?? []).filter(ct => !ct.hidden).map(ct => `<span>${ct.name} <b class="gold">${u.counters[ct.id] ?? 0}</b></span>`).join('');
+  const counters = (c.counters ?? []).filter(ct => !ct.hidden).filter(ct => !ct.onlyPositive || (u.counters[ct.id] ?? 0) > 0)
+    .map(ct => `<span>${esc(ct.name)} <b class="gold">${u.counters[ct.id] ?? 0}</b>${ct.max ? `／${ct.max}` : ''}</span>`).join('');
   const hsChip = c.costAs === 'hand' ? `<span>HS <b>${u.hand.length}</b></span>` : '';
   const under = c.underName ? `<span class="underchip" data-under="${u.id}">${c.underName} <b>${u.under.length}</b> ▸</span>` : '';
   let actions = '';
@@ -173,7 +174,7 @@ export function cardInner(defId: string, cost?: number): string {
   return `<div class="face" style="--theme:${themeOf(d.charId)};${artToneOf(d.charId)}" data-zoom="${defId}" data-zoom-cost="${c}">
     <div class="cost ${c < d.cost ? 'cheap' : ''} ${hs ? 'hs' : ''}">${hs ? 'HS' : ''}${c}</div>
     <div class="art" style="--hue:${hue(defId)}"><span class="glyph">${esc(d.name[0])}</span><img src="${ASSET.card(defId)}"></div>
-    <div class="cname">${esc(d.name)}</div>
+    <div class="cname">${d.tag ? `<span class="ctag">${esc(d.tag)}</span>` : ''}${esc(d.name)}</div>
     <div class="ctext ${textSize(d)}">${d.drawText ? `<span class="drw">${kwSpan('(抽出時)')} ${richText(d.drawText)}</span> ` : ''}${richText(d.text)}${d.discardText ? `<span class="dis"> ${kwSpan('(棄置時)')} ${richText(d.discardText)}</span>` : ''}</div>
   </div>`;
 }
@@ -220,7 +221,7 @@ export function handHtml(g: Game, u: Unit, myPrompt: Prompt | null, myTurn: bool
     const playable = myTurn && g.canAct(u) && g.checkAction(me, { type: 'play', unitId: u.id, cardUid: c.uid }) === null;
     const selectable = selecting && (myPrompt as any).cardUids.includes(c.uid);
     const cls = ['card', playable ? 'playable' : '', selectable ? 'selectable' : '', ui.selected.has(c.uid) ? 'selected' : '', ui.picked?.uid === c.uid ? 'picked' : '', hidden?.has(c.uid) ? 'pending' : ''].join(' ');
-    html += `<div class="${cls}" data-card="${c.uid}" data-owner="${u.id}" data-preview-card="${c.defId}" style="--x:${start + i * step}px;--y:${y}px;--rot:${rot}deg;z-index:${i + 1}">${cardInner(c.defId, g.cardCost(u, c.defId))}</div>`;
+    html += `<div class="${cls}" data-card="${c.uid}" data-owner="${u.id}" data-preview-card="${c.defId}" style="--x:${start + i * step}px;--y:${y}px;--rot:${rot}deg;z-index:${i + 1}">${cardInner(c.defId, g.cardCost(u, c))}</div>`;
   });
   return html + `</div>`;
 }
@@ -256,7 +257,7 @@ export function bandHtml(st: GameState, g: Game, myPrompt: Prompt | null, myTurn
     cardDef = c.defId; cardCls = 'me';
     label = '準備打出'; main = `${esc(g.unit(ui.picked.unitId).name)}：【${esc(d.name)}】`;
     const pickedU = g.unit(ui.picked.unitId);
-    sub = `花費 ${g.cardCost(pickedU, c.defId)} ${CHAR_DEFS[pickedU.charId].costAs === 'hand' ? 'HS' : 'AP'}`;
+    sub = `花費 ${g.cardCost(pickedU, c)} ${CHAR_DEFS[pickedU.charId].costAs === 'hand' ? 'HS' : 'AP'}`;
     btns = `<button class="btn small" data-play-picked>打出</button><button class="btn small ghost" data-cancel-pick>取消</button>`;
   } else if (lastPlayed) {
     mainCls = rel(lastPlayed.side);

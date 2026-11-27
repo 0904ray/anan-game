@@ -71,9 +71,12 @@ export function findKeyword(word: string): (KeywordDef & { charId?: string }) | 
   return null;
 }
 
-/** 可以不加中括號也認得的詞條名稱（共用＋角色專屬，不含 wip），長的排前面：畫面用來在文字裡找「沒加中括號」的詞 */
+/**
+ * 可以不加中括號也認得的詞條名稱（共用＋角色專屬，不含 wip），長的排前面：畫面用來在文字裡找「沒加中括號」的詞。
+ * 單字詞（例如八重的[拔]、[破]）不列入，避免把別的字詞吃進去（例如「速拔」的「拔」）；單字詞一律要寫成 [詞]。
+ */
 export function keywordNames(): string[] {
   const names = new Set(Object.values(KEYWORDS).filter(k => !k.wip).map(k => k.name));
   for (const c of Object.values(CHAR_DEFS)) for (const k of Object.keys(c.keywords ?? {})) names.add(k);
-  return [...names].sort((a, b) => b.length - a.length);
+  return [...names].filter(n => n.length > 1).sort((a, b) => b.length - a.length);
 }

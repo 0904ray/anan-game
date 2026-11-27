@@ -1,4 +1,4 @@
-import type { Unit, Prompt, CardInst } from './types';
+import type { Unit, Prompt, CardInst, AttackCtx } from './types';
 import type { Game } from './game';
 
 /** 效果是 generator：遇到需要玩家選擇時 yield 一個 Prompt，拿到答案再繼續 */
@@ -14,6 +14,8 @@ export interface CardDef {
   charId: string;
   name: string;
   cost: number;
+  /** 武器／類型標記（例如 '刀'）：卡面在卡名旁顯示成小標籤。有標記的牌就是「攻擊牌」 */
+  tag?: string;
   text: string;          // 打出效果說明
   /** 依情況變動的費用（沒寫就是 cost） */
   costFor?(g: Game, u: Unit): number;
@@ -59,7 +61,8 @@ export interface CharDef {
   at: number;
   atkCost: number;
   sp: number;
-  counters?: { id: string; name: string; hidden?: boolean }[]; // 例如 財富
+  /** 角色計數器：畫面會顯示成「名稱 數值」，有 max 就顯示成「數值／max」，onlyPositive 只在 >0 時顯示 */
+  counters?: { id: string; name: string; hidden?: boolean; max?: number; onlyPositive?: boolean }[]; // 例如 財富
   /** 角色專屬詞條的說明（卡面上用 [詞] 標起來的詞），例如 { 財富: '…' }。長按放大卡牌時會顯示 */
   keywords?: Record<string, string>;
   /** 可以使用壓在下方的牌（葛蘭妮） */
@@ -101,6 +104,10 @@ export interface CharDef {
     onAttack?(g: Game, u: Unit): void;
     /** 主動攻擊時那一次[打擊]的設定（例如改成[直擊]、或用指定數值取代 AT） */
     strikeOpts?(g: Game, u: Unit): { direct?: boolean; power?: number };
+    /** 一次攻擊開始時（普攻或打出攻擊牌，已付費）：可以修正這次攻擊的傷害（atk.power／direct／fixed） */
+    onAttackStart?(g: Game, u: Unit, atk: AttackCtx): Eff | void;
+    /** 一次攻擊的主要傷害結算之後：追加效果（例如追加[直擊]、回復 HP） */
+    onAttackEnd?(g: Game, u: Unit, atk: AttackCtx): Eff | void;
     /** 主動攻擊命中之後，t = 目標、dmg = 這次對 HP 造成的傷害 */
     onAttackHit?(g: Game, u: Unit, t: Unit, dmg: number): void;
     /** 使用下方的牌之後 */

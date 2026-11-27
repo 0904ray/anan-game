@@ -50,7 +50,7 @@ export function showUnder(unitId: string) {
     const a: Action = { type: 'playUnder', unitId: u.id, cardUid: card.uid };
     const err = u.owner === me && myTurn ? g.checkAction(me, a) : '不是你的回合';
     const btn = u.owner === me ? `<button class="act-btn" data-action='${esc(JSON.stringify(a))}' ${err ? `disabled title="${esc(err)}"` : ''}>使用</button>` : '';
-    return `<div class="underitem"><div class="showcard me">${cardInner(card.defId, g.cardCost(u, card.defId))}</div>${btn}</div>`;
+    return `<div class="underitem"><div class="showcard me">${cardInner(card.defId, g.cardCost(u, card))}</div>${btn}</div>`;
   }).join('');
   popup(`<h2>${esc(u.name)} 的${c.underName ?? '下方'}牌堆　${u.under.length} 張（每張 AT +1）</h2>
     <div class="underlist">${items || '<div class="item">還沒有吞噬任何牌</div>'}</div>

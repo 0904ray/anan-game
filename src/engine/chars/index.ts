@@ -6,3 +6,4 @@ import './ranis';
 import './mia';
 import './liliante';
 import './heretic';
+import './yae';
