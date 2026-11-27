@@ -28,7 +28,8 @@
   transform-origin: 50% 50%; transition: none !important; will-change: transform;
   box-shadow: 0 30px 55px rgba(0, 0, 0, .7), 0 0 26px rgba(255, 207, 90, .35); }
 
-.cost.cheap { background: radial-gradient(#b6ff9a, #3d9a16) !important; color: #0e2a03 !important; }
+/* 費用被效果減少：金色圓底不變，只有數字變綠色（深色描邊，在金底上才看得清楚） */
+.cost.cheap { color: #3dff4f !important; -webkit-text-stroke: 1.5px #0a3a06; paint-order: stroke fill; text-shadow: 0 0 6px rgba(20, 120, 10, .7); }
 .card .ctext.long { font-size: 16px; line-height: 1.33; }
 .card .ctext.xlong { font-size: 13.5px; line-height: 1.28; }
 .showcard .ctext.long { font-size: 11px; line-height: 1.28; }
