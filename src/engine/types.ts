@@ -5,6 +5,7 @@ export type PlayerIdx = 0 | 1;
 export interface CardInst {
   uid: string;   // 這張實體牌的唯一編號
   defId: string; // 對應的卡牌定義（隱藏時為 'hidden'）
+  costMod?: number; // 這張實體牌的費用修正（例如無方讓手牌裡的攻擊牌 -1 AP）；跟著這張牌一直有效
 }
 
 export type LifeState = 'alive' | 'dying' | 'dead';
@@ -58,6 +59,24 @@ export interface Unit {
   tTp: number;
 
   counters: Record<string, number>; // 角色專屬計數，例如 wealth（財富）
+}
+
+/**
+ * 一次「攻擊」的設定：普攻和攻擊牌（有 CardDef.tag 的牌）都各算 1 次攻擊。
+ * 角色的 hooks.onAttackStart 在傷害前修正它，hooks.onAttackEnd 在傷害後追加效果。
+ * 只活在結算過程中，不會進 GameState。
+ */
+export interface AttackCtx {
+  u: Unit;                  // 攻擊者
+  cardId: string | null;    // 這次攻擊用的牌（普攻是 null）
+  tag: string | null;       // 那張牌的武器標記（例如 '刀'）
+  power: number;            // 這次[打擊]的傷害（不含[負傷]增傷、減傷）
+  direct: boolean;          // 這次傷害是[直擊]（不減少 TP）
+  fixed: boolean;           // 這次傷害是[直傷]（固定傷害，不吃增傷／減傷、不扣 TP）
+  target: Unit | null;      // 這次攻擊的主要目標
+  dealt: number;            // 主要傷害實際造成的 HP 傷害合計
+  /** 角色 hook 之間傳資料用的暫存欄位（不會進 GameState） */
+  data: Record<string, number | string>;
 }
 
 export interface PlayerState {

@@ -9,6 +9,7 @@ const RANIS: Team = ['ranis', 'savanna'];
 const MIA: Team = ['mia', 'savanna'];
 const LIL: Team = ['liliante', 'savanna'];
 const HER: Team = ['heretic', 'savanna'];
+const YAE: Team = ['yae', 'savanna'];
 
 describe('隨機對打（壓力測試）', () => {
   it('兩隻薩凡娜對打 1000 場', () => {
@@ -39,6 +40,11 @@ describe('隨機對打（壓力測試）', () => {
   it('異端物＋薩凡娜 對打 1000 場（手牌付費、掃場、型態改寫）', () => {
     // 異端物 18 張＋薩凡娜 17 張
     const w = simulate([HER, MIX], 1000, p => (p === 0 ? 35 : 34));
+    expect(w[0] + w[1]).toBeGreaterThan(950);
+  });
+  it('八重＋薩凡娜 對打 1000 場（[拔]翻牌、每 3 次攻擊[破]）', () => {
+    // 八重 17 張＋薩凡娜 17 張
+    const w = simulate([YAE, MIX], 1000, () => 34);
     expect(w[0] + w[1]).toBeGreaterThan(950);
   });
 });

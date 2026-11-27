@@ -35,3 +35,5 @@
 .showcard .ctext.xlong { font-size: 9.5px; line-height: 1.25; }
 /* 手牌費用（HS）：角標文字比較長，縮小字級才放得進圓圈 */
 .card .cost.hs { font-size: 15px; letter-spacing: -1px; }
+/* 卡名旁的武器／類型小標籤（CardDef.tag，例如八重的「刀」） */
+.card .cname .ctag { display: inline-block; margin-right: 7px; padding: 0 7px; border-radius: 6px; background: #7a4a22; color: #ffe0b0; font-size: 17px; line-height: 24px; font-weight: 700; vertical-align: 2px; }
