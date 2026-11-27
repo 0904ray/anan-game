@@ -99,7 +99,7 @@ export function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: s
   const hpPct = Math.max(0, u.hp / u.maxHp * 100);
   return `
   <div class="${cls}" data-unit="${u.id}">
-    <div class="portrait tilt" data-unit-click="${u.id}" style="--hue:${hue(u.charId)}">
+    <div class="portrait tilt" data-unit-click="${u.id}" style="--hue:${hue(u.charId)};${artToneOf(u.charId)}">
       <div class="art"><span class="initial">${esc(CHAR_DEFS[u.charId].name[0])}</span><img src="${ASSET.char(u.charId)}"></div>
       <div class="badges">${badges(g, u)}</div>
       <div class="nameplate">${esc(u.name)}</div>
@@ -116,6 +116,8 @@ export function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: s
 
 /** 角色主題色 */
 export const themeOf = (charId: string) => CHAR_DEFS[charId]?.theme ?? '#c8963e';
+/** 角色的圖片色調校正（CharDef.artTone）：輸出成 CSS 變數，tone.css 會疊在色調層次上 */
+export const artToneOf = (charId: string) => { const t = CHAR_DEFS[charId]?.artTone; return t ? `--art-tone:${t.replace(/[;"<>]/g, '')}` : ''; };
 
 // 卡牌文字裡的特殊詞條：上色＋底線（有說明的詞，長按放大卡牌時可以點開說明）
 //   [詞] 一律當詞條；沒加中括號但和詞條同名的詞（例如「打擊 1 名單位」）也認得；【卡名】金色。
@@ -161,7 +163,7 @@ function textSize(d: { text: string; discardText?: string; drawText?: string }):
 export function cardInner(defId: string, cost?: number): string {
   const d = CARD_DEFS[defId];
   const c = cost ?? d.cost;
-  return `<div class="face" style="--theme:${themeOf(d.charId)}" data-zoom="${defId}" data-zoom-cost="${c}">
+  return `<div class="face" style="--theme:${themeOf(d.charId)};${artToneOf(d.charId)}" data-zoom="${defId}" data-zoom-cost="${c}">
     <div class="cost ${c < d.cost ? 'cheap' : ''}">${c}</div>
     <div class="art" style="--hue:${hue(defId)}"><span class="glyph">${esc(d.name[0])}</span><img src="${ASSET.card(defId)}"></div>
     <div class="cname">${esc(d.name)}</div>
@@ -171,7 +173,7 @@ export function cardInner(defId: string, cost?: number): string {
 
 /** 卡背：角色專屬卡背 → 通用卡背 → 佔位花紋（圖片缺了就自動露出下一層）。rot＝橫放（敵方牌堆） */
 export function backHtml(charId: string, rot = false): string {
-  return `<div class="back ${rot ? 'rot' : ''}" style="--theme:${themeOf(charId)}"><img src="${ASSET.back}"><img src="${ASSET.backOf(charId)}"></div>`;
+  return `<div class="back ${rot ? 'rot' : ''}" style="--theme:${themeOf(charId)};${artToneOf(charId)}"><img src="${ASSET.back}"><img src="${ASSET.backOf(charId)}"></div>`;
 }
 
 /** 我方牌堆：牌組在上、棄牌區在下 */
