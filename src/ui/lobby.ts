@@ -28,7 +28,8 @@ export function renderLobby(status = '', roomCode = '') {
       ${roomCode ? `<button class="btn ghost small" data-act="lobby">取消</button>` : ''}
     </div>
     ${roomCode ? '' : `<button class="btn ghost small art-toggle" data-act="toggle-art">${artHidden ? '顯示 AI 圖' : '隱藏 AI 圖（改用色塊）'}</button>`}
-    ${roomCode ? '' : pwaHtml()}`;
+    ${roomCode ? '' : pwaHtml()}
+    ${roomCode ? '' : `<button class="btn ghost small settings-btn" data-act="settings">⚙ 設定</button>`}`;
 }
 
 

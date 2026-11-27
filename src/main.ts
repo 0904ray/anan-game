@@ -5,9 +5,11 @@ import { preloadAssets } from './ui/preload';
 import { renderLobby, readName } from './ui/lobby';
 import { startLocal } from './ui/input';
 import { setupPwa } from './ui/pwa';
+import { setupAudio } from './ui/audio';
 import { stage } from './ui/dom';
 
 setupStage();
+setupAudio();
 
 // PWA：註冊離線快取、檢查更新；狀態改變時，如果正在大廳（不是等待連線中）就重畫
 setupPwa(() => {

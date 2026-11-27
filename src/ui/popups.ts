@@ -1,7 +1,7 @@
 // 頁內彈出視窗：角色說明、完整紀錄、牌堆內容、吞噬牌堆、選單
 import { CARD_DEFS, CHAR_DEFS, type Action } from '../engine';
 import { esc, stage } from './dom';
-import { view, me, rel, liveGame } from './state';
+import { view, me, rel, liveGame, musicVol, sfxVol } from './state';
 import { cardInner, richText, themeOf } from './render';
 
 // 頁內彈出視窗（角色說明、完整紀錄、棄牌區內容、選單）
@@ -57,6 +57,15 @@ export function showUnder(unitId: string) {
     ${u.owner === me ? '<div class="hint2">使用吞噬的牌：照卡面費用付 AP，用完進棄牌區，+1 暴食</div>' : ''}`);
 }
 
+/** 音量滑桿（拖動時由 input.ts 的 input 事件處理，見 data-vol） */
+function volumeHtml(): string {
+  const row = (kind: 'music' | 'sfx', label: string, v: number) =>
+    `<label class="volrow"><span>${label}</span><input type="range" min="0" max="100" step="1" value="${Math.round(v * 100)}" data-vol="${kind}"><b data-vol-val="${kind}">${Math.round(v * 100)}</b></label>`;
+  return `<div class="volumes">${row('music', '音樂', musicVol)}${row('sfx', '音效', sfxVol)}</div>`;
+}
+export function showSettings() {
+  popup(`<h2>設定</h2>${volumeHtml()}<div class="hint2">第一次點畫面之後才會開始播音樂（瀏覽器的規定）</div>`);
+}
 export function showMenu() {
-  popup(`<h2>離開這場對戰，回到大廳？</h2><div class="row2"><button class="btn" data-act="lobby">回到大廳</button></div>`);
+  popup(`<h2>選單</h2>${volumeHtml()}<div class="row2"><button class="btn" data-act="lobby">離開對戰，回到大廳</button></div>`);
 }

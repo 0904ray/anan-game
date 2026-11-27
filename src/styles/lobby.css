@@ -22,3 +22,4 @@
 .update-bar { position: absolute; top: 36px; left: 50%; transform: translateX(-50%); font-size: 24px; padding: 14px 36px; box-shadow: 0 0 24px rgba(243, 180, 80, .45); }
 .install-btn { position: absolute; left: 48px; bottom: 40px; width: auto; white-space: nowrap; padding-left: 22px; padding-right: 22px; }
 .install-hint { position: absolute; left: 48px; bottom: 44px; max-width: 760px; font-size: 20px; color: #cdb88f; }
+.settings-btn { position: absolute; right: 48px; top: 36px; width: auto; white-space: nowrap; padding-left: 22px; padding-right: 22px; }

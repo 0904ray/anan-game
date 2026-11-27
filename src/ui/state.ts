@@ -45,3 +45,14 @@ export function setUpdateReady(v: string | null) { updateReady = v; }
 /** PWA：瀏覽器允許「安裝到裝置」時拿到的事件（Chrome／Edge／Android），按大廳的安裝按鈕時用 */
 export let installPrompt: { prompt(): Promise<void> } | null = null;
 export function setInstallPrompt(e: { prompt(): Promise<void> } | null) { installPrompt = e; }
+
+/** 音量（0～1）：音樂（BGM）和音效分開調，會記住 */
+export let musicVol = 0.5;
+export let sfxVol = 0.8;
+try {
+  const m = localStorage.getItem('cg-music-vol'), x = localStorage.getItem('cg-sfx-vol');
+  if (m !== null && !isNaN(+m)) musicVol = Math.min(1, Math.max(0, +m));
+  if (x !== null && !isNaN(+x)) sfxVol = Math.min(1, Math.max(0, +x));
+} catch { /* 預覽環境可能不能用 localStorage */ }
+export function setMusicVol(v: number) { musicVol = v; try { localStorage.setItem('cg-music-vol', String(v)); } catch { /* 同上 */ } }
+export function setSfxVol(v: number) { sfxVol = v; try { localStorage.setItem('cg-sfx-vol', String(v)); } catch { /* 同上 */ } }

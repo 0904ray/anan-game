@@ -3,12 +3,13 @@ import { randomTeam, isValidTeam, type GameState, type PlayerIdx, type Action, t
 import { ALLOW_SAME_CHAR_IN_TEAM, DEFAULT_TEAMS } from '../config';
 import { LocalSession, HostSession, GuestSession, randomRoomCode, type SessionEvents } from '../net/session';
 import { stage, toast } from './dom';
-import { view, me, ui, session, myName, hoverDef, setSession, setView, setLastPlayed, setHoverDef, liveGame, artHidden, setArtHidden } from './state';
+import { view, me, ui, session, myName, hoverDef, setSession, setView, setLastPlayed, setHoverDef, liveGame, artHidden, setArtHidden, setMusicVol, setSfxVol } from './state';
 import { showSelect, closeSelect, isSelecting, setSelectStatus, handleSelectClick, handleSelectHover } from './select';
 import { renderGame, cardInner } from './render';
 import { renderLobby, readName } from './lobby';
 import { enqueue, isBusy, fastForward } from './anim';
-import { showCharSheet, showFullLog, showPile, showUnder, showMenu } from './popups';
+import { showCharSheet, showFullLog, showPile, showUnder, showMenu, showSettings } from './popups';
+import { applyVolumes, playSfx } from './audio';
 import { setupZoom, zoomBlocksClick } from './zoom';
 import { applyUpdate, promptInstall } from './pwa';
 
@@ -193,6 +194,20 @@ window.addEventListener('pointerup', () => stopDrag(drag?.over ?? false));
 setupZoom(() => stopDrag(false));
 window.addEventListener('pointercancel', () => stopDrag(false));
 
+// 音量滑桿：拖動時即時套用、記住
+stage.addEventListener('input', e => {
+  const el = e.target as HTMLInputElement;
+  const kind = el.dataset?.vol;
+  if (!kind) return;
+  const v = Math.min(100, Math.max(0, Number(el.value))) / 100;
+  if (kind === 'music') setMusicVol(v); else if (kind === 'sfx') setSfxVol(v); else return;
+  const out = stage.querySelector(`[data-vol-val="${kind}"]`);
+  if (out) out.textContent = String(Math.round(v * 100));
+  applyVolumes();
+});
+// 放開音效滑桿時試播一聲，聽得出大小
+stage.addEventListener('change', e => { if ((e.target as HTMLElement).dataset?.vol === 'sfx') playSfx('card'); });
+
 stage.addEventListener('click', e => {
   if (zoomBlocksClick()) return; // 剛長按放大／剛關掉放大：這一下不算點擊
   if (isBusy()) { fastForward(); return; } // 動畫播放中：點一下加速
@@ -222,6 +237,7 @@ stage.addEventListener('click', e => {
     else if (k === 'pwa-update') applyUpdate();
     else if (k === 'pwa-install') promptInstall().then(() => renderLobby());
     else if (k === 'menu') showMenu();
+    else if (k === 'settings') showSettings();
     else if (k === 'fulllog') showFullLog();
     else if (k === 'close-popup') stage.querySelector('.popup-bg')?.remove();
     return;

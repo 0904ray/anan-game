@@ -2,6 +2,7 @@ import { CARD_DEFS, CHAR_DEFS, type GameState, type PlayerIdx, type UnitSnap, ty
 import { stage } from './dom';
 import { view, me, lastFxSeq, setView, setLastFxSeq, setLastPlayed, rel, liveGame } from './state';
 import { renderGame, mergeSnap, unitHtml, pilesHtml, miniPilesHtml, bandHtml, cardInner, backHtml } from './render';
+import { playSfx } from './audio';
 
 // =====================================================================
 // 動畫佇列：每次收到新畫面，照遊戲事件的順序一個一個播
@@ -233,6 +234,7 @@ async function playEvent(e: FxEvent, layer: HTMLElement, ghosts: Map<string, HTM
       return;
     }
     case 'draw': {
+      playSfx('card');
       const from = deckRect(e.unitId);
       applySnap(e.s);
       if (isMine(e.unitId)) {
@@ -255,6 +257,7 @@ async function playEvent(e: FxEvent, layer: HTMLElement, ghosts: Map<string, HTM
     }
     case 'reshuffle': {
       const from = discardRect(e.unitId), to = deckRect(e.unitId);
+      [0, 90, 180].forEach((t, i) => setTimeout(() => playSfx('card', { rate: 1.05 + i * 0.08 }), t * speed)); // 洗牌：連續幾聲
       if (from && to) {
         const flies = [0, 1, 2].map(() => makeFly(layer, null, from, charOf(e.unitId)));
         await Promise.all(flies.map((f, i) => sleep(i * 70).then(() => flyTo(f, from, to, 320))));
@@ -264,6 +267,7 @@ async function playEvent(e: FxEvent, layer: HTMLElement, ghosts: Map<string, HTM
       return;
     }
     case 'play': {
+      playSfx('card', { rate: 0.9 });
       applySnap(e.s);
       let fl = ghosts.get(e.uid);
       let from = fl ? rectFromEl(fl) : e.fromUnder ? underRect(e.unitId) : portraitRect(e.unitId);
@@ -281,6 +285,7 @@ async function playEvent(e: FxEvent, layer: HTMLElement, ghosts: Map<string, HTM
       return;
     }
     case 'playEnd': {
+      playSfx('card', { gain: 0.6 });
       const from = showRect(), to = discardRect(e.unitId);
       if (from && to) {
         const fl = makeFly(layer, e.defId, from);
@@ -293,6 +298,7 @@ async function playEvent(e: FxEvent, layer: HTMLElement, ghosts: Map<string, HTM
       return;
     }
     case 'mill': {
+      playSfx('card');
       // 從牌組移除 N 張到棄牌區：牌從牌組飛進棄牌堆
       const from = deckRect(e.unitId), to = discardRect(e.unitId);
       if (from && to) {
@@ -304,6 +310,7 @@ async function playEvent(e: FxEvent, layer: HTMLElement, ghosts: Map<string, HTM
       return;
     }
     case 'remove': {
+      playSfx('card', { gain: 0.6, rate: 1.2 });
       // 移出牌局：從手牌或牌組往上淡出
       const ghost = e.uid ? ghosts.get(e.uid) : undefined;
       if (ghost) ghosts.delete(e.uid!);
@@ -316,6 +323,7 @@ async function playEvent(e: FxEvent, layer: HTMLElement, ghosts: Map<string, HTM
       return;
     }
     case 'discard': {
+      playSfx('card', { gain: 0.7 });
       const to = discardRect(e.unitId);
       let fl = ghosts.get(e.uid);
       const from = fl ? rectFromEl(fl) : portraitRect(e.unitId);
@@ -344,6 +352,7 @@ async function playEvent(e: FxEvent, layer: HTMLElement, ghosts: Map<string, HTM
       return;
     }
     case 'toDiscard': {
+      playSfx('card');
       const from = underRect(e.unitId), to = discardRect(e.unitId);
       if (from && to) {
         const flies = Array.from({ length: Math.min(e.n, 5) }, () => makeFly(layer, null, { ...from, w: 60, h: 84 }, charOf(e.unitId)));
@@ -360,6 +369,7 @@ async function playEvent(e: FxEvent, layer: HTMLElement, ghosts: Map<string, HTM
         const dx = (rt.x - ra.x) * 0.45, dy = (rt.y - ra.y) * 0.45;
         const anim = a.animate([{ translate: '0 0', zIndex: 40 }, { translate: `${dx}px ${dy}px`, zIndex: 40, offset: 0.45 }, { translate: '0 0', zIndex: 40 }], { duration: 360 * speed, easing: 'ease-in-out' });
         await sleep(160);
+        playSfx('hit');
         const slash = document.createElement('div');
         slash.className = 'slash';
         slash.style.left = rt.x + rt.w / 2 + 'px';

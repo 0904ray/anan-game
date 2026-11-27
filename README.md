@@ -249,3 +249,9 @@ test/         規則測試、每個角色的測試、隨機對打壓力測試
   - [反擊]牌自己回合不能主動打出（`checkAction` 一律回「[反擊]牌只能在被攻擊時打出」，手牌照常顯示但不能點）
 - TP 顯示（通用規則）：最大 TP > 12 或目前 TP 超過最大 TP 時，菱形改成「數字＋長條」（`TP 60 / 60`），[負傷]門檻照樣標在一半的位置
 - 為了這些機制，核心新增通用機制：`CharDef.tpUncapped`、`CardDef.reaction`／`react`／`canPlay`（`play` 變成選用，[反擊]牌沒有 `play`）、`StatusDef.attackTakenBonus`、`GameState.triggers` 與 `g.queueTrigger`／`registerTrigger`（延後觸發）、`g.declareAttackTarget`（指定攻擊目標 → [反擊]）、`g.enterDying`（讓單位直接進入[瀕死]）、通用 hook `extraWounded`／`canBeExecuted`／`incomingDamage`／`dyingTpLoss`／`onEnterDying`；核心沒有出現任何角色 id 判斷
+
+## 音效來源
+
+- 背景音樂：冷倫
+- 出牌音效：oxidvideos〈taking playing card 3〉（Pixabay）
+- 攻擊音效：DRAGON-STUDIO〈sword clash hit〉（Pixabay）

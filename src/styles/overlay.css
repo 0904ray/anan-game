@@ -35,3 +35,10 @@
 .gameover .row2 { display: flex; gap: 20px; }
 .toast { position: absolute; left: 50%; top: 40px; transform: translateX(-50%); background: #7a1d16; color: #fff; padding: 12px 28px; border-radius: 30px; font-size: 22px; z-index: 300; animation: toast 2.2s forwards; pointer-events: none; }
 @keyframes toast { 0% { opacity: 0; } 10%, 80% { opacity: 1; } 100% { opacity: 0; } }
+
+/* 設定／選單裡的音量滑桿 */
+.volumes { display: flex; flex-direction: column; gap: 18px; margin: 10px 0 20px; min-width: 560px; }
+.volrow { display: flex; align-items: center; gap: 18px; font-size: 26px; }
+.volrow span { width: 80px; color: #f0d9a8; }
+.volrow input[type=range] { flex: 1; height: 36px; accent-color: #e0a84a; cursor: pointer; }
+.volrow b { width: 56px; text-align: right; font-variant-numeric: tabular-nums; color: #ffe48a; }
