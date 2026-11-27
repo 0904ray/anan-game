@@ -46,7 +46,7 @@ describe('米雅', () => {
     expect(m.life).toBe('alive');
   });
 
-  it('能力 2【聖旨】：花費 2 AP 給予我方 1 名單位[聖環]，已擁有[聖環]的不能再選', () => {
+  it('能力 2【聖旨】：花費 2 AP 給予我方 1 名單位[聖環]；我方場上只能有一個，給新的會從隊友身上移過來', () => {
     const g = newGame();
     const m = g.unit('p0u0');
     const mate = g.unit('p0u1');
@@ -57,14 +57,24 @@ describe('米雅', () => {
     expect(mate.counters.holy).toBe(1);
     expect(m.ap).toBe(5);
 
-    // 只剩米雅自己沒有[聖環]：直接指定，不用選
+    // 再用一次：只能選還沒有[聖環]的米雅自己（直接指定），隊友的[聖環]移過來
     expect(g.apply(0, { type: 'ability', unitId: m.id, abilityId: 'a2' }).ok).toBe(true);
     expect(g.state.prompt).toBe(null);
     expect(m.counters.holy).toBe(1);
+    expect(mate.counters.holy ?? 0).toBe(0);
     expect(m.ap).toBe(3);
 
-    // 兩隻都有[聖環]了：不能再用
+    // 隊友有永久[聖環]時，不能用聖旨把它移走
+    m.counters.holy = 0;
+    mate.counters.holyP = 1;
     expect(g.apply(0, { type: 'ability', unitId: m.id, abilityId: 'a2' }).ok).toBe(false);
+  });
+
+  it('米雅不能主動攻擊', () => {
+    const g = newGame();
+    const m = g.unit('p0u0');
+    m.ap = 7;
+    expect(g.checkAction(0, { type: 'attack', unitId: m.id })).toBe('這個角色不能主動攻擊');
   });
 
   it('能力 3：每回合我方單位首次回復 HP 時抽 1 張牌（同回合第二次就不抽）', () => {
@@ -267,11 +277,13 @@ describe('米雅', () => {
     m.hand = [];
     m.ap = 7;
     const tpMax0 = mate.tpMax;
+    m.counters.holy = 1; // 米雅身上原本有臨時[聖環]
 
     g.apply(0, { type: 'play', unitId: m.id, cardUid: give(g, m.id, 'mia_favor') });
     ans(g, 0); // 選項 1（沒有瀕死隊友時是第 1 項）
     ans(g, mate.id);
     expect(mate.counters.holyP).toBe(1);
+    expect(m.counters.holy ?? 0).toBe(0); // 我方場上只能有一個：米雅的被取代
     expect(mate.tpMax).toBe(tpMax0 + 1);
 
     // 永久[聖環]：回合換過一輪也不會解除

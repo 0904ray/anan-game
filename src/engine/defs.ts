@@ -53,6 +53,8 @@ export interface CharDef {
   /** 可以使用壓在下方的牌（葛蘭妮） */
   canPlayUnder?: boolean;
   underName?: string; // 下方牌堆的名稱，例如「吞噬」
+  /** 不能主動攻擊（普攻）：畫面不顯示普攻按鈕，AT／普攻花費也不顯示 */
+  noAttack?: boolean;
   /** [救治]不限次數：不佔用、也不消耗一局一次的額度 */
   rescueUnlimited?: boolean;
   abilities: AbilityDef[];

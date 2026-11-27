@@ -91,7 +91,7 @@ export function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: s
       const err = g.checkAction(me, a);
       return `<button class="act-btn ${extra}" data-action='${esc(JSON.stringify(a))}' ${err ? `disabled title="${esc(err)}"` : ''}>${label}</button>`;
     };
-    actions += btn({ type: 'attack', unitId: u.id }, `普攻 ${u.atkCost}`);
+    if (!c.noAttack) actions += btn({ type: 'attack', unitId: u.id }, `普攻 ${u.atkCost}`);
     actions += btn({ type: 'advance', unitId: u.id }, '居前 1');
     if (g.rescueAllowed(u)) actions += btn({ type: 'rescue', unitId: u.id }, `救治 ${g.teammate(u).tp * 2}`);
     for (const ab of c.abilities.filter(a => a.active)) actions += btn({ type: 'ability', unitId: u.id, abilityId: ab.id }, ab.name, 'ability');

@@ -15,14 +15,28 @@ const FAVOR = 'favor';    // 【不公之恩寵】使用過的次數（使用 2 
 const hasHoly = (g: Game, u: Unit) => g.counter(u, HOLY) > 0 || g.counter(u, HOLYP) > 0;
 const hasPermHoly = (g: Game, u: Unit) => g.counter(u, HOLYP) > 0;
 
-/** 給單位[聖環]（同一名單位只能有一個，不可疊加） */
+/**
+ * [聖環]：我方場上同時只能有一個。
+ * - 臨時[聖環]（聖旨）：給了新的，隊友身上原本的臨時[聖環]就移過來；隊友有永久[聖環]時不能給
+ * - 永久[聖環]（不公之恩寵）：一定給得出去，隊友身上原本的[聖環]（臨時或永久）會被取代
+ */
+function canGiveHoly(g: Game, t: Unit) {
+  return t.life === 'alive' && !hasHoly(g, t) && !hasPermHoly(g, g.teammate(t));
+}
+function clearHoly(g: Game, x: Unit) {
+  g.addCounter(x, HOLY, -g.counter(x, HOLY));
+  g.addCounter(x, HOLYP, -g.counter(x, HOLYP));
+}
 function giveHoly(g: Game, by: Unit, t: Unit, permanent = false) {
-  if (hasPermHoly(g, t)) return false;
+  const mate = g.teammate(t);
   if (permanent) {
-    g.addCounter(t, HOLY, -g.counter(t, HOLY)); // 臨時的升級成永久的
+    if (hasPermHoly(g, t)) return false;
+    if (hasHoly(g, mate)) { clearHoly(g, mate); g.log(`${mate.name} 的[聖環]移到 ${t.name} 身上`, by.owner); }
+    clearHoly(g, t); // 臨時的升級成永久的
     g.addCounter(t, HOLYP, 1);
   } else {
-    if (hasHoly(g, t)) return false;
+    if (!canGiveHoly(g, t)) return false;
+    if (hasHoly(g, mate)) { clearHoly(g, mate); g.log(`${mate.name} 的[聖環]移到 ${t.name} 身上`, by.owner); }
     g.addCounter(t, HOLY, 1);
   }
   g.log(`【${by.name}】${t.name} 獲得${permanent ? '永久' : ''}[聖環]`, by.owner);
@@ -136,23 +150,24 @@ const mia: CharDef = {
   title: '奶媽、多次救治、沒傷害',
   theme: '#d6c88f',
   lore: '從小雙親被盜賊殺害，被教團收養；隨著年齡增長，她發現雇用那些盜賊的就是教團——因為他們的神愛上了米雅，教團便不擇手段讓她入教。即使知道了真相，她也無法反抗教團，只能接受神明的恩寵。不具備戰鬥能力，而且十分怠惰，但在神明的恩寵下，祂不會讓敵人以外的屍體出現在她眼前。',
-  hp: 40, ap: 7, tp: 4, at: 0, atkCost: 1, sp: 0,
+  hp: 40, ap: 7, tp: 4, at: 0, atkCost: 0, sp: 0,
+  noAttack: true, // 不能主動攻擊
   rescueUnlimited: true,
   counters: [
     { id: FAVOR, name: '恩寵', hidden: true },
     { id: HD, name: '本回合已抽', hidden: true },
   ],
   keywords: {
-    聖環: '擁有[聖環]的單位，自己的回合結束時與受到治療時各自回復 1 HP；擁有者自己的下一個回合開始時解除（永久[聖環]不會解除）。同一名單位只能有一個[聖環]，不會疊加。',
+    聖環: '擁有[聖環]的單位，自己的回合結束時與受到治療時各自回復 1 HP；擁有者自己的下一個回合開始時解除（永久[聖環]不會解除）。我方場上同時只能有一個[聖環]：給了新的，原本的就會移過來。',
     告罪: '【告罪】造成的 AT 減少：目標自己的回合結束時恢復（也就是撐到米雅的下個回合）。',
   },
   abilities: [
     { id: 'p1', active: false, name: '神的恩寵', text: '米雅[救治]友軍不限次數，而且不佔用一局一次的額度。' },
     {
-      id: 'a2', active: true, name: '聖旨', text: '花費 2 AP：給予我方 1 名單位[聖環]。',
-      canUse: (g, u) => u.ap >= 2 && g.state.players[u.owner].units.some(x => x.life === 'alive' && !hasHoly(g, x)),
+      id: 'a2', active: true, name: '聖旨', text: '花費 2 AP：給予我方 1 名單位[聖環]（我方場上只能有一個）。',
+      canUse: (g, u) => u.ap >= 2 && g.state.players[u.owner].units.some(x => canGiveHoly(g, x)),
       *use(g, u) {
-        const targets = g.state.players[u.owner].units.filter(x => x.life === 'alive' && !hasHoly(g, x));
+        const targets = g.state.players[u.owner].units.filter(x => canGiveHoly(g, x));
         const t = yield* g.chooseUnit(u.owner, '聖旨：選 1 名我方單位給予[聖環]', targets);
         if (!t) return;
         u.ap -= 2;

@@ -227,6 +227,7 @@ export class Game {
       }
       case 'attack': {
         const h = CHAR_DEFS[u.charId].hooks;
+        if (CHAR_DEFS[u.charId].noAttack) return '這個角色不能主動攻擊';
         if (h?.canAttack && !h.canAttack(this, u)) return '沒有足夠的攻擊資源';
         if (u.attacksThisTurn >= (h?.attackLimit?.(this, u) ?? 1)) return '這回合已經主動攻擊過了';
         if (u.ap < (h?.attackApCost?.(this, u) ?? u.atkCost)) return 'AP 不足';

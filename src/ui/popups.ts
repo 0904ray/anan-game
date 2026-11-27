@@ -18,7 +18,7 @@ export function showCharSheet(unitId: string) {
   const u = liveGame().unit(unitId);
   const c = CHAR_DEFS[u.charId];
   popup(`<div class="charsheet" style="--theme:${themeOf(u.charId)}">
-    <h3>${esc(u.name)}</h3><div class="tag">${esc(c.title)}　HP ${c.hp}｜AP ${c.ap}｜TP ${c.tp}｜AT ${c.at} × AP ${c.atkCost}</div>
+    <h3>${esc(u.name)}</h3><div class="tag">${esc(c.title)}　HP ${c.hp}｜AP ${c.ap}｜TP ${c.tp}｜${c.noAttack ? `AT ${c.at}（不能普攻）` : `AT ${c.at} × AP ${c.atkCost}`}</div>
     ${c.abilities.map((a, i) => `<div class="ab"><b>${i + 1}. ${esc(a.name)}</b>${a.active ? '<span class="act">主動</span>' : ''}：${richText(a.text)}</div>`).join('')}
     <div class="lore">${esc(c.lore)}</div></div>`);
 }
