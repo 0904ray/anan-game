@@ -175,3 +175,22 @@ describe('角色名單與隊伍', () => {
     for (let i = 0; i < 50; i++) expect(isValidTeam(randomTeam(Math.random, false), false)).toBe(true);
   });
 });
+
+describe('牌組空了：只有抽牌會自動洗牌', () => {
+  it('從牌組移除、移出牌局，牌組空了也不會把棄牌區洗回來；抽牌才會', () => {
+    const g = make(['savanna', 'granny']);
+    const u = g.state.players[0].units[0];
+    u.discard.push(...u.deck.splice(0)); // 牌組清空，牌都在棄牌區
+    const dis = u.discard.length;
+    expect(g.mill(u, 3)).toBe(0);
+    expect(g.removeDeckTop(u, 2)).toBe(0);
+    expect(u.deck.length).toBe(0);
+    expect(u.discard.length).toBe(dis);
+    // 抽牌：牌組空了才把棄牌區洗回去
+    const hand = u.hand.length;
+    expect(g.draw(u, 1)).toBe(1);
+    expect(u.hand.length).toBe(hand + 1);
+    expect(u.discard.length).toBe(0);
+    expect(u.deck.length).toBe(dis - 1);
+  });
+});

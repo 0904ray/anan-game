@@ -514,7 +514,10 @@ export class Game {
     if (had) this.fx({ t: 'reshuffle', unitId: u.id });
   }
 
-  /** [移除]：從牌組最上方把 n 張牌放進棄牌區（「從牌組移除 N 張牌至棄牌區」）：不算抽牌、不算棄牌。回傳被移除的牌 */
+  /**
+   * [移除]：從牌組最上方把 n 張牌放進棄牌區（「從牌組移除 N 張牌至棄牌區」）：不算抽牌、不算棄牌。回傳被移除的牌。
+   * 牌組不夠就只移除剩下的；牌組空了**不會**把棄牌區洗回來——只有抽牌才會自動洗牌（專案擁有者確認）。
+   */
   millTop(u: Unit, n: number): CardInst[] {
     const out: CardInst[] = [];
     for (let i = 0; i < n && u.deck.length; i++) out.push(u.deck.pop()!);
