@@ -75,8 +75,8 @@ export function badges(g: Game, u: Unit): string {
   return b.join('');
 }
 
-/** 嘲諷標記：紅色盾牌＋憤怒表情（敵方的攻擊會先落在這裡） */
-const TAUNT_SVG = '<svg viewBox="0 0 64 72" aria-hidden="true"><defs><linearGradient id="taunt-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff6a4f"/><stop offset="1" stop-color="#9c120c"/></linearGradient></defs><path d="M32 3 L60 13 V34 C60 52 47 64 32 70 C17 64 4 52 4 34 V13 Z" fill="url(#taunt-g)" stroke="#ffd2a8" stroke-width="4" stroke-linejoin="round"/></svg><span class="emo">😡</span>';
+/** 嘲諷標記：紅色盾牌＋💢（敵方的攻擊會先落在這裡） */
+const TAUNT_SVG = '<svg viewBox="0 0 64 72" aria-hidden="true"><defs><linearGradient id="taunt-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a1410"/><stop offset="1" stop-color="#170605"/></linearGradient></defs><path d="M32 3 L60 13 V34 C60 52 47 64 32 70 C17 64 4 52 4 34 V13 Z" fill="url(#taunt-g)" stroke="#ff5a3c" stroke-width="5" stroke-linejoin="round"/></svg><span class="emo">💢</span>';
 
 export function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: string[], myTurn: boolean): string {
   const c = CHAR_DEFS[u.charId];
