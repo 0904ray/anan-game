@@ -78,7 +78,7 @@ export interface CharDef {
   deck: [string, number][];
   hooks?: {
     /** 回合開始、正常抽牌之前 */
-    onTurnStartBeforeDraw?(g: Game, u: Unit): void;
+    onTurnStartBeforeDraw?(g: Game, u: Unit): Eff | void;
     /** 我方任一單位棄牌時（每張觸發一次），u = 擁有此能力的單位。可以回傳 Eff 讓玩家做選擇 */
     onAllyDiscard?(g: Game, u: Unit, discarder: Unit, card: CardInst): Eff | void;
     /** 額外 AT */

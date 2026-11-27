@@ -1,4 +1,4 @@
-import { registerChar, registerStatus, type CardDef, type CharDef, type PlayPay, type HandPaid } from '../defs';
+import { registerChar, registerStatus, type CardDef, type CharDef, type PlayPay } from '../defs';
 import type { Game } from '../game';
 import type { Unit } from '../types';
 
@@ -47,37 +47,15 @@ function enterMode(g: Game, u: Unit, mode: 1 | 2) {
 }
 
 /**
- * 【臨界點的裁決】回合開始自動打出：湊得出 11 張手牌就打出。
- * 自動支付時先付自己的手牌，再付隊友的（能力 3 的抽牌照樣觸發）。
- * 回傳 true 表示打出了。
+ * 【臨界點的裁決】回合開始強制打出：我方湊得出 11 張手牌（不含這張）就直接打出。
+ * 付費和一般出牌一樣由玩家自己選要移除誰的哪幾張牌（專案擁有者確認），所以型態也是玩家決定的。
  */
-function autoVerdict(g: Game, u: Unit): boolean {
-  if (g.counter(u, MODE) > 0) return false;
-  const vi = u.hand.findIndex(c => c.defId === VERDICT);
-  if (vi < 0) return false;
-  const mate = g.teammate(u);
-  const own = u.hand.filter((_, i) => i !== vi);
-  const mateCards = mate.life === 'alive' ? mate.hand : [];
-  if (own.length + mateCards.length < VERDICT_COST) return false;
-
-  const verdict = u.hand[vi];
-  const ownPay = own.slice(0, VERDICT_COST);
-  const matePay = mateCards.slice(0, VERDICT_COST - ownPay.length);
-
-  u.hand.splice(vi, 1);
-  u.removed.push(verdict);
-  g.fx({ t: 'play', unitId: u.id, defId: verdict.defId, uid: verdict.uid });
+function* autoVerdict(g: Game, u: Unit) {
+  if (g.counter(u, MODE) > 0) return;
+  const verdict = u.hand.find(c => c.defId === VERDICT);
+  if (!verdict || g.handAvail(u) - 1 < VERDICT_COST) return;
   g.log(`${u.name} 回合開始，直接打出【臨界點的裁決】`, u.owner);
-
-  g.millHand(u, ownPay.map(c => c.uid));
-  g.millHand(mate, matePay.map(c => c.uid));
-  const removals: HandPaid[] = [];
-  if (ownPay.length) removals.push({ unitId: u.id, n: ownPay.length });
-  if (matePay.length) removals.push({ unitId: mate.id, n: matePay.length });
-  g.handRemoved(u, removals);
-  g.fx({ t: 'playEnd', unitId: u.id, defId: verdict.defId, removed: true });
-  enterMode(g, u, ownPay.length > matePay.length ? 1 : 2);
-  return true;
+  yield* g.playFromHand(u, verdict.uid);
 }
 
 const cards: CardDef[] = [
@@ -227,10 +205,10 @@ const heretic: CharDef = {
       }
       if (parts.length) g.log(`[異端物] 本回合首次移除手牌：${parts.join('、')}`, u.owner);
     },
-    onTurnStartBeforeDraw(g, u) {
+    *onTurnStartBeforeDraw(g, u) {
       const n = g.counter(u, FIRST);
       if (n) g.addCounter(u, FIRST, -n);
-      autoVerdict(g, u);
+      yield* autoVerdict(g, u);
     },
   },
 };

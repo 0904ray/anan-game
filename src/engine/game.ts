@@ -293,29 +293,7 @@ export class Game {
     switch (a.type) {
       case 'endTurn': yield* this.endTurn(); return;
       case 'play': {
-        const u = this.unit(a.unitId);
-        const idx = u.hand.findIndex(x => x.uid === a.cardUid);
-        const card = u.hand.splice(idx, 1)[0];
-        u.playing.push(card);
-        const d = CARD_DEFS[card.defId];
-        const cost = this.cardCost(u, card.defId);
-        this.fx({ t: 'play', unitId: u.id, defId: d.id, uid: card.uid });
-        let pay: PlayPay | undefined;
-        if (CHAR_DEFS[u.charId].costAs === 'hand') {
-          // 手牌費用：從自己或隊友的手牌移除（打出這張牌已經離開手牌）
-          const paid = yield* this.payHandCost(u, cost);
-          pay = { handPaid: paid };
-          this.log(`${u.name} 打出【${d.name}】（-${cost} HS）`, u.owner);
-        } else {
-          u.ap -= cost;
-          this.log(`${u.name} 打出【${d.name}】（-${cost} AP）`, u.owner);
-        }
-        yield* d.play(this, u, pay);
-        u.playing.splice(u.playing.indexOf(card), 1);
-        const rm = typeof d.removeAfterPlay === 'function' ? d.removeAfterPlay(this, u) : !!d.removeAfterPlay;
-        if (rm) u.removed.push(card); // 使用後移出牌局
-        else u.discard.push(card); // 打出的牌進棄牌區（不算「棄牌」）
-        this.fx({ t: 'playEnd', unitId: u.id, defId: d.id, removed: rm });
+        yield* this.playFromHand(this.unit(a.unitId), a.cardUid);
         return;
       }
       case 'playUnder': {
@@ -435,7 +413,8 @@ export class Game {
         }
       }
       if (replaced) continue;
-      CHAR_DEFS[u.charId].hooks?.onTurnStartBeforeDraw?.(this, u);
+      const r = CHAR_DEFS[u.charId].hooks?.onTurnStartBeforeDraw?.(this, u);
+      if (r) yield* r; // 可以要求玩家選擇（例如回合開始強制打出時選付費的牌）
       this.draw(u, CHAR_DEFS[u.charId].hooks?.turnStartDraw?.(this, u) ?? 1, true);
     }
   }
@@ -592,6 +571,37 @@ export class Game {
       if (a.life === 'dead') continue;
       CHAR_DEFS[a.charId].hooks?.onHandRemoved?.(this, a, removals);
     }
+  }
+
+  /**
+   * 從手牌打出一張牌：付費（AP 或手牌）→ 結算效果 → 進棄牌區（或移出牌局）。
+   * 一般出牌走這裡；「直接打出」的效果（例如回合開始強制打出）也呼叫這個，不用自己重寫流程。
+   * 呼叫前請先確認付得起（一般出牌由 checkAction 檢查）。
+   */
+  *playFromHand(u: Unit, cardUid: string): Eff {
+    const idx = u.hand.findIndex(x => x.uid === cardUid);
+    if (idx < 0) return;
+    const card = u.hand.splice(idx, 1)[0];
+    u.playing.push(card);
+    const d = CARD_DEFS[card.defId];
+    const cost = this.cardCost(u, card.defId);
+    this.fx({ t: 'play', unitId: u.id, defId: d.id, uid: card.uid });
+    let pay: PlayPay | undefined;
+    if (CHAR_DEFS[u.charId].costAs === 'hand') {
+      // 手牌費用：玩家自己選要移除哪些手牌（自己或隊友的；打出的這張牌已經離開手牌）
+      const paid = yield* this.payHandCost(u, cost);
+      pay = { handPaid: paid };
+      this.log(`${u.name} 打出【${d.name}】（-${cost} HS）`, u.owner);
+    } else {
+      u.ap -= cost;
+      this.log(`${u.name} 打出【${d.name}】（-${cost} AP）`, u.owner);
+    }
+    yield* d.play(this, u, pay);
+    u.playing.splice(u.playing.indexOf(card), 1);
+    const rm = typeof d.removeAfterPlay === 'function' ? d.removeAfterPlay(this, u) : !!d.removeAfterPlay;
+    if (rm) u.removed.push(card); // 使用後移出牌局
+    else u.discard.push(card); // 打出的牌進棄牌區（不算「棄牌」）
+    this.fx({ t: 'playEnd', unitId: u.id, defId: d.id, removed: rm });
   }
 
   /** 把指定的手牌移出牌局（不進棄牌區） */

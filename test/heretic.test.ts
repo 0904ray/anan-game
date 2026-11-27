@@ -114,6 +114,26 @@ describe('異端物', () => {
     expect(g.checkAction(0, { type: 'attack', unitId: H })).toBeNull();
   });
 
+  it('【臨界點的裁決】回合開始強制打出：付費一樣由玩家自己選（決定型態）', () => {
+    const g = fresh();
+    const h = g.unit(H);
+    give(g, H, 'her_verdict');
+    stack(g, H, 'her_tear', 5);
+    stack(g, M, 'her_intrude', 6);
+    g.apply(0, { type: 'endTurn' });
+    g.apply(1, { type: 'endTurn' });
+    // 我方回合開始：直接打出，先問要從誰的手牌付
+    expect(g.state.prompt?.kind).toBe('option');
+    answer(g, 1); // 隊友先付 6 張，剩下 5 張由自己付
+    expect(g.counter(h, 'beyond')).toBe(1);
+    // [超越此方]當回合就生效：隊友的[起手抽牌]改成檢索，接著問要檢索哪張
+    expect(g.state.prompt?.kind).toBe('option');
+    expect(g.state.prompt?.title).toContain('超越此方');
+    answer(g, 0);
+    expect(g.state.prompt).toBe(null);
+    expect(h.removed.some(c => c.defId === 'her_verdict')).toBe(true);
+  });
+
   it('【臨界點的裁決】：費用多來自隊友 → [超越此方]（HP 綁定、TP 以隊友為基準）', () => {
     const g = fresh();
     const h = g.unit(H);
