@@ -3,3 +3,4 @@ import './savanna';
 import './granny';
 import './saviel';
 import './ranis';
+import './mia';

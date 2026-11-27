@@ -6,6 +6,7 @@ const SAV: Team = ['savanna', 'savanna'];
 const MIX: Team = ['savanna', 'granny'];
 const SAVIEL: Team = ['saviel', 'savanna'];
 const RANIS: Team = ['ranis', 'savanna'];
+const MIA: Team = ['mia', 'savanna'];
 
 describe('隨機對打（壓力測試）', () => {
   it('兩隻薩凡娜對打 1000 場', () => {
@@ -22,6 +23,10 @@ describe('隨機對打（壓力測試）', () => {
   });
   it('拉尼斯＋薩凡娜 對打 1000 場（牌會被移出牌局，所以雙方總數檢查含移除的牌）', () => {
     const w = simulate([RANIS, MIX], 1000, () => 34);
+    expect(w[0] + w[1]).toBeGreaterThan(950);
+  });
+  it('米雅＋薩凡娜 對打 1000 場（不公之恩寵會把牌移出牌局）', () => {
+    const w = simulate([MIA, MIX], 1000, () => 34);
     expect(w[0] + w[1]).toBeGreaterThan(950);
   });
 });

@@ -1,7 +1,7 @@
 import type {
   Action, Answer, CardInst, GameState, PlayerIdx, PlayerState, Prompt, Unit, FxBody, UnitSnap,
 } from './types';
-import { CARD_DEFS, CHAR_DEFS, END_OF_TURN, type Eff } from './defs';
+import { CARD_DEFS, CHAR_DEFS, END_OF_TURN, STATUS_DEFS, type Eff } from './defs';
 
 export interface ApplyResult { ok: boolean; error?: string }
 
@@ -49,7 +49,7 @@ export class Game {
     return {
       id: `p${owner}u${slot}`, owner, slot, charId, name: c.name,
       hp: c.hp, maxHp: c.hp, ap: 0, apMax: c.ap, tp: c.tp, tpMax: c.tp, at: c.at, atkCost: c.atkCost, baseSp: c.sp,
-      life: 'alive', critical: false, criticalPrev: false, tpMaxDown: 0, spBonus: 0,
+      life: 'alive', critical: false, criticalPrev: false, woundedPrev: false, tpMaxDown: 0, spBonus: 0,
       deck, hand: [], discard: [], playing: [], under: [], removed: [],
       attacksThisTurn: 0, advanced: false, buyUsedThisTurn: false,
       dmgReduce: 0, noWound: false, noTpLoss: false, halfTpNext: false, tHp: 0, tTp: 0,
@@ -92,7 +92,7 @@ export class Game {
   teammate(u: Unit): Unit { return this.state.players[u.owner].units[1 - u.slot]; }
   allies(u: Unit): Unit[] { return this.state.players[u.owner].units.filter(x => x.life !== 'dead'); }
   enemiesOf(owner: PlayerIdx): Unit[] { return this.state.players[1 - owner].units.filter(x => x.life !== 'dead'); }
-  effSp(u: Unit): number { return u.life === 'dying' ? -1 : u.baseSp + u.spBonus; }
+  effSp(u: Unit): number { return u.life === 'dying' ? -1 : u.baseSp + u.spBonus + (CHAR_DEFS[u.charId].hooks?.spDelta?.(this, u) ?? 0); }
   isWounded(u: Unit): boolean { return u.life === 'alive' && !u.noWound && u.tp <= Math.floor(this.effTpMax(u) / 2); }
   /** 目前的最大 TP（含永久減少，例如[墬淵]），最低 1 */
   effTpMax(u: Unit): number { return Math.max(1, u.tpMax - u.tpMaxDown); }
@@ -106,6 +106,11 @@ export class Game {
   /** 主動攻擊能選的目標（角色可以用 hooks.enemyTargets 改寫，例如不受 SP 限制） */
   attackTargets(u: Unit): Unit[] {
     return CHAR_DEFS[u.charId].hooks?.enemyTargets?.(this, u) ?? this.targetableEnemies(u.owner);
+  }
+  /** 這個單位現在可不可以[救治]隊友（有些角色不限次數） */
+  rescueAllowed(u: Unit): boolean {
+    if (u.life !== 'alive' || this.teammate(u).life !== 'dying') return false;
+    return !!CHAR_DEFS[u.charId].rescueUnlimited || !this.state.players[u.owner].rescueUsed;
   }
   /** 實際攻擊力（含角色能力加成） */
   effAt(u: Unit): number { return u.at + (CHAR_DEFS[u.charId].hooks?.atBonus?.(this, u) ?? 0); }
@@ -233,7 +238,7 @@ export class Game {
         if (u.ap < 1) return 'AP 不足';
         return null;
       case 'rescue': {
-        if (this.state.players[player].rescueUsed) return '救治一局只能用一次';
+        if (!CHAR_DEFS[u.charId].rescueUnlimited && this.state.players[player].rescueUsed) return '救治一局只能用一次';
         const ally = this.teammate(u);
         if (ally.life !== 'dying') return '沒有瀕死的隊友';
         const cost = ally.tp * 2;
@@ -269,9 +274,10 @@ export class Game {
         this.fx({ t: 'play', unitId: u.id, defId: d.id, uid: card.uid });
         yield* d.play(this, u);
         u.playing.splice(u.playing.indexOf(card), 1);
-        if (d.removeAfterPlay) u.removed.push(card); // 使用後移出牌局
+        const rm = typeof d.removeAfterPlay === 'function' ? d.removeAfterPlay(this, u) : !!d.removeAfterPlay;
+        if (rm) u.removed.push(card); // 使用後移出牌局
         else u.discard.push(card); // 打出的牌進棄牌區（不算「棄牌」）
-        this.fx({ t: 'playEnd', unitId: u.id, defId: d.id, removed: !!d.removeAfterPlay });
+        this.fx({ t: 'playEnd', unitId: u.id, defId: d.id, removed: rm });
         return;
       }
       case 'playUnder': {
@@ -327,7 +333,7 @@ export class Game {
         u.ap -= apPay;
         u.hp -= hpPay;
         if (hpPay) this.fx({ t: 'damage', unitId: u.id, amount: hpPay });
-        this.state.players[player].rescueUsed = true;
+        if (!CHAR_DEFS[u.charId].rescueUnlimited) this.state.players[player].rescueUsed = true; // 不限次數的角色不佔用一局一次的額度
         ally.life = 'alive';
         ally.hp = Math.min(ally.maxHp, cost);
         ally.critical = ally.tp === 0;
@@ -361,6 +367,7 @@ export class Game {
     for (const u of ps.units) {
       if (u.life === 'dead') continue;
       u.criticalPrev = u.critical; // 記下「上回合是否處於[重創]」，再重算
+      u.woundedPrev = this.isWounded(u); // 記下「上回合是否[負傷]」（用回滿 TP 之前的數值）
       u.tHp = 0; u.tTp = 0; u.dmgReduce = 0; u.noWound = false; u.noTpLoss = false;
       u.spBonus = 0; u.attacksThisTurn = 0; u.advanced = false; u.buyUsedThisTurn = false;
       if (u.life === 'alive') {
@@ -376,6 +383,10 @@ export class Game {
       }
     }
     this.fx({ t: 'turn', player: p });
+    // 掛在單位身上的狀態：自己回合開始（例如[聖環]解除）
+    for (const u of ps.units) {
+      for (const s of Object.values(STATUS_DEFS)) if ((u.counters[s.id] ?? 0) > 0) s.onTurnStart?.(this, u);
+    }
     for (const u of ps.units) {
       if (u.life !== 'alive') continue;
       CHAR_DEFS[u.charId].hooks?.onTurnStartBeforeDraw?.(this, u);
@@ -393,6 +404,11 @@ export class Game {
       if (u.life !== 'alive') continue;
       const r = CHAR_DEFS[u.charId].hooks?.onOwnTurnEnd?.(this, u);
       if (r) yield* r;
+    }
+    // 掛在單位身上的狀態：自己回合結束（例如[聖環]回復 1 HP）
+    for (const u of st.players[p].units) {
+      if (u.life !== 'alive') continue;
+      for (const s of Object.values(STATUS_DEFS)) if ((u.counters[s.id] ?? 0) > 0) s.onTurnEnd?.(this, u);
     }
     this.log(`${st.players[p].name} 結束回合`, p);
     yield* this.startTurn((1 - p) as PlayerIdx);
@@ -566,14 +582,21 @@ export class Game {
     if (u.hp <= 0) this.enterDying(u);
   }
 
-  heal(u: Unit, n: number) {
+  /**
+   * 回復 HP。raw = 不套用狀態的治療加成（例如[聖環]自己回合結束的回復）。
+   * 狀態的治療加成（[聖環]「受到治療時回復 1」）直接加在這次治療量上。
+   */
+  heal(u: Unit, n: number, raw = false) {
     if (u.life !== 'alive' || n <= 0) return;
+    if (!raw) for (const s of Object.values(STATUS_DEFS)) if ((u.counters[s.id] ?? 0) > 0) n += s.healBonus?.(this, u) ?? 0;
     const before = u.hp;
     u.hp = Math.min(u.maxHp, u.hp + n);
     const got = u.hp - before;
     if (!got) return; // 滿血就不記錄
     this.log(`${u.name} 回復 ${got} HP`, u.owner);
     this.fx({ t: 'heal', unitId: u.id, amount: got });
+    // 我方單位回復 HP 時的被動（例如米雅抽牌）
+    for (const a of this.allies(u)) CHAR_DEFS[a.charId].hooks?.onAllyHeal?.(this, a, u, got);
   }
 
   /** 減少 TP（打擊或效果）。TP 歸零 → [重創]：-3 HP 直傷 */
