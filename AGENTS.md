@@ -81,7 +81,7 @@ test/
    - 角色計數器（財富、暴食）→ `CharDef.counters` ＋ `g.counter()` / `g.addCounter()`
    - 被動觸發 → `CharDef.hooks`（`onAllyDiscard`、`onAllyShuffle`、`onUnitCritical`、`onTurnStartBeforeDraw`、`onOwnTurnEnd`、`atBonus`、`onStrike`、`afterPlayUnder`…完整清單看 `defs.ts`）
    - 改變能指定的敵人（例如不受 SP 限制）→ `hooks.enemyTargets`
-   - SP 加減 → `hooks.spDelta`；我方回復 HP 時 → `hooks.onAllyHeal`；[救治]不限次數 → `CharDef.rescueUnlimited`；不能普攻 → `CharDef.noAttack`；效果造成的救治（回歸）→ `g.reviveUnit()`
+   - SP 加減 → `hooks.spDelta`；我方回復 HP 時 → `hooks.onAllyHeal`；[救治]不限次數 → `CharDef.rescueUnlimited`；不能普攻 → `CharDef.noAttack`；改寫[救治]花費 → `CharDef.rescueCost`；[不屈] → `CharDef.unyielding`（能不能行動一律問 `g.canAct()`）；損失 HP → `hooks.onHpLoss`；任一單位進入[負傷] → `hooks.onUnitWounded`；打擊自身 → `g.strikeSelf()`＋`hooks.selfHit`；回復 TP → `g.gainTp()`；支付 HP 代價 → `g.payHp()`；效果造成的救治（回歸）→ `g.reviveUnit()`
    - 掛在單位身上、要顯示徽章的狀態（例如[墬淵]、[聖環]）→ `registerStatus()`＋`g.addCounter()`；狀態自己的效果（治療加成、持有者回合開始／結束時）寫在 `StatusDef` 裡，持有者死掉的角色也照樣結算
    - 「(抽出時)」效果 → 卡牌 `drawText`（卡面文字）＋`onDrawCard`（結算）；寫法比照 `discardText`／`onDiscard`
    - 牌的去向：`g.mill()`（牌組→棄牌區）、`g.removeHandCards()`／`g.removeDeckTop()`／`removeAfterPlay`（移出牌局）、`g.abilityShuffle()`（[洗牌]）

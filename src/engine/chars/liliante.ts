@@ -40,11 +40,12 @@ const cards: CardDef[] = [
     id: 'lil_frenzy', charId: 'liliante', name: '癲狂鬥魂', cost: 1,
     text: '自身 -1 TP，回復 1 HP。如果自身當前[負傷]，改為回復 1 TP、3 HP。',
     *play(g, u) {
-      g.loseTp(u, 1);
+      // 「改為」：打出時已經[負傷]就整個換成後面的效果（不會先 -1 TP 再加回來）
       if (g.isWounded(u)) {
         g.gainTp(u, 1);
         g.heal(u, 3);
       } else {
+        g.loseTp(u, 1);
         g.heal(u, 1);
       }
     },
@@ -83,21 +84,19 @@ const cards: CardDef[] = [
   },
   {
     id: 'lil_fury', charId: 'liliante', name: '兇絕亂擊', cost: 6,
-    text: '（如果自身本回合已[負傷]，此牌 -4 AP）自身 -2 TP、回復 2 HP，下 1 次[主動攻擊] -2 AP。如果自身本回合已[負傷]，改為回復 2 TP。',
+    text: '（如果自身本回合已[負傷]，此牌 -4 AP）自身 -2 TP、回復 2 HP，下 1 次[主動攻擊] -2 AP。如果自身本回合已[負傷]，-2 TP 改為 +2 TP。',
     costFor: (g, u) => (woundedThisTurn(g, u) ? 2 : 6),
     *play(g, u) {
-      if (woundedThisTurn(g, u)) {
-        g.gainTp(u, 2);
-      } else {
-        g.loseTp(u, 2);
-        g.heal(u, 2);
-      }
+      // 「改為 +2 TP」只換掉「-2 TP」那一段，回復 2 HP 和下次普攻 -2 AP 照樣有
+      if (woundedThisTurn(g, u)) g.gainTp(u, 2);
+      else g.loseTp(u, 2);
+      g.heal(u, 2);
       nextAttackDown(g, u);
     },
   },
   {
     id: 'lil_run', charId: 'liliante', name: '別想跑!!!', cost: 6,
-    text: '（如果自身本回合已[負傷]，此牌 -4 AP）自身 -2 TP，無條件指定 1 名敵方單位 SP +1，下 1 次[主動攻擊] -2 AP。如果自身本回合已[負傷]，改為回復 2 TP。',
+    text: '（如果自身本回合已[負傷]，此牌 -4 AP）自身 -2 TP，無條件指定 1 名敵方單位 SP +1，下 1 次[主動攻擊] -2 AP。如果自身本回合已[負傷]，-2 TP 改為 +2 TP。',
     costFor: (g, u) => (woundedThisTurn(g, u) ? 2 : 6),
     *play(g, u) {
       const t = yield* g.chooseUnit(u.owner, '別想跑!!!：無條件指定 1 名敵方單位（SP +1）', g.enemiesOf(u.owner));
@@ -115,7 +114,7 @@ const cards: CardDef[] = [
   },
   {
     id: 'lil_death', charId: 'liliante', name: '承此亦死', cost: 8,
-    text: '（如果自身本回合已[負傷]，此牌 -4 AP）無條件[打擊] 1 名敵方單位，再使該單位 -X TP（X＝自身當前損失的 TP）。之後如果自身本回合已[負傷]，回復 2 TP。',
+    text: '（如果自身本回合已[負傷]，此牌 -4 AP）無條件指定 1 名敵方單位[打擊]，再使該單位 -X TP（X＝自身目前損失的 TP）。之後如果自身本回合已[負傷]，+2 TP。',
     costFor: (g, u) => (woundedThisTurn(g, u) ? 4 : 8),
     *play(g, u) {
       const wounded = woundedThisTurn(g, u);
@@ -151,15 +150,12 @@ const liliante: CharDef = {
     { id: WT, name: '本回合負傷', hidden: true },
     { id: NEXT, name: '下1次普攻-2', hidden: true },
   ],
-  keywords: {
-    打擊自身: '對自己[打擊]：造成自身 AT 的傷害並 -1 TP。利利安特對自身造成的傷害減半（無條件捨去），也不計算[負傷]的額外增傷。',
-  },
   abilities: [
-    { id: 'p1', active: false, name: '狂戰', text: '【利利安特】的 AT 等於當前 TP，而且[主動攻擊]不受次數限制。' },
-    { id: 'p2', active: false, name: '血肉鑄鍊', text: '一回合內損失 8 HP，或進入[負傷]時，永久 +1 最大 TP（每回合 1 次，最多 6 次）。' },
+    { id: 'p1', active: false, name: '狂戰', text: '利利安特的 AT 等於當前 TP，而且[主動攻擊]不受次數限制。' },
+    { id: 'p2', active: false, name: '血肉鑄鍊', text: '一回合內累計損失 8 HP，或進入[負傷]時，永久 +1 最大 TP（每回合 1 次，最多 6 次）。' },
     { id: 'p3', active: false, name: '嗜戰', text: '每回合有單位（敵我皆算）進入[負傷]時，回復 3 AP。' },
-    { id: 'p4', active: false, name: '傭兵急救', text: '【利利安特】的[救治]耗費減半。' },
-    { id: 'p5', active: false, name: '痛覺鈍化', text: '【利利安特】對自身造成的傷害減半（無條件捨去），且不計算額外的增傷。' },
+    { id: 'p4', active: false, name: '傭兵急救', text: '利利安特的[救治]耗費減半。' },
+    { id: 'p5', active: false, name: '痛覺鈍化', text: '利利安特對自身造成的傷害減半（無條件捨去），且不計算額外的增傷（[負傷]的 +1）。' },
     { id: 'p6', active: false, name: '不屈', text: '此單位擁有[不屈]。' },
   ],
   deck: [

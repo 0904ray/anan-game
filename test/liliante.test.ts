@@ -181,7 +181,7 @@ describe('利利安特', () => {
     l.hp = 40;
     l.tp = 2; // [負傷]
     g.apply(0, { type: 'play', unitId: l.id, cardUid: give(g, l.id, 'lil_frenzy') });
-    expect(l.tp).toBe(2); // 1 → 2（+1 TP）
+    expect(l.tp).toBe(3); // 「改為」：不扣 TP，直接 +1（2 → 3）
     expect(l.hp).toBe(43);
   });
 
@@ -248,7 +248,7 @@ describe('利利安特', () => {
     expect(l.hand.length).toBe(2);
   });
 
-  it('兇絕亂擊：本回合[負傷]時只要 2 AP；-2 TP、+2 HP、下 1 次普攻 -2 AP', () => {
+  it('兇絕亂擊：本回合[負傷]時只要 2 AP；-2 TP（負傷時改 +2 TP）、+2 HP、下 1 次普攻 -2 AP', () => {
     const g = newGame();
     const l = g.unit('p0u0');
     l.hand = [];
@@ -267,13 +267,13 @@ describe('利利安特', () => {
     expect(a.hp).toBe(42);
     expect(a.counters.nextAtk).toBe(1);
 
-    // 本回合已[負傷]：改為 +2 TP
+    // 本回合已[負傷]：-2 TP 改為 +2 TP（回復 2 HP 照樣有）
     l.ap = 2;
     l.hp = 40;
     l.tp = 2;
     g.apply(0, { type: 'play', unitId: l.id, cardUid: give(g, l.id, 'lil_fury') });
     expect(l.tp).toBe(4);
-    expect(l.hp).toBe(40);
+    expect(l.hp).toBe(42);
     expect(l.counters.nextAtk).toBe(1);
   });
 

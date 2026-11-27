@@ -164,7 +164,7 @@ export class Game {
     else this.state.prompt = r.value;
     this.checkGameOver();
   }
-  private   checkGameOver() {
+  private checkGameOver() {
     if (this.state.winner !== null) return;
     // [不屈]的單位[瀕死]時還能行動，所以不算「無法行動」
     const lost = [0, 1].map(p => this.state.players[p].units.every(u => !this.canAct(u)));
