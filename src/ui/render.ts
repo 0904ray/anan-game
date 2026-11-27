@@ -93,7 +93,7 @@ export function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: s
     };
     actions += btn({ type: 'attack', unitId: u.id }, `普攻 ${u.atkCost}`);
     actions += btn({ type: 'advance', unitId: u.id }, '居前 1');
-    if (g.teammate(u).life === 'dying' && !view!.players[me].rescueUsed) actions += btn({ type: 'rescue', unitId: u.id }, `救治 ${g.teammate(u).tp * 2}`);
+    if (g.rescueAllowed(u)) actions += btn({ type: 'rescue', unitId: u.id }, `救治 ${g.teammate(u).tp * 2}`);
     for (const ab of c.abilities.filter(a => a.active)) actions += btn({ type: 'ability', unitId: u.id, abilityId: ab.id }, ab.name, 'ability');
   }
   const hpPct = Math.max(0, u.hp / u.maxHp * 100);
@@ -108,7 +108,7 @@ export function unitHtml(g: Game, u: Unit, side: 'mine' | 'theirs', targetIds: s
     <div class="stats">
       <div class="hpbar"><div class="fill" style="width:${hpPct}%"></div><span>HP ${u.hp} / ${u.maxHp}${u.tHp ? ` (+${u.tHp})` : ''}</span></div>
       <div class="row"><label>TP</label><div class="pips">${tpPips}</div><label class="ap">AP</label><div class="pips">${apPips}</div></div>
-      <div class="chips"><span>AT <b>${g.effAt(u)}</b>・SP <b>${g.effSp(u)}</b></span>${counters}${under}${u.removed.length ? `<span>移除 <b>${u.removed.length}</b></span>` : ''}${side === 'theirs' ? `<span>手牌 <b>${u.hand.length}</b></span>` : ''}</div>
+      <div class="chips"><span>AT <b>${g.effAt(u)}</b>・SP <b>${g.effSp(u)}</b></span>${u.tTp ? `<span>臨時 TP <b>+${u.tTp}</b></span>` : ''}${counters}${under}${u.removed.length ? `<span>移除 <b>${u.removed.length}</b></span>` : ''}${side === 'theirs' ? `<span>手牌 <b>${u.hand.length}</b></span>` : ''}</div>
       ${actions ? `<div class="actions">${actions}</div>` : ''}
     </div>
   </div>`;

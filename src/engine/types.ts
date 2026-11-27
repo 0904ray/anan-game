@@ -29,6 +29,7 @@ export interface Unit {
   life: LifeState;
   critical: boolean;   // 本輪 TP 歸零進入[重創]（-3 HP 已扣）
   criticalPrev: boolean; // 自己上一個回合開始時是否處於[重創]（「上回合有[重創]」的判斷用）
+  woundedPrev: boolean;  // 自己上一個回合開始時是否[負傷]（「上回合有[負傷]」的判斷用）
   tpMaxDown: number;   // 永久的最大 TP 減少（[墬淵]）；等效最大 TP = tpMax - tpMaxDown
   spBonus: number;     // [居前] 加成
 

@@ -18,8 +18,8 @@ export interface CardDef {
   drawText?: string;
   /** (抽出時) 抽到手上的當下結算（含開局抽牌）；不是 generator，不能要求玩家選擇 */
   onDrawCard?(g: Game, u: Unit, card: CardInst): void;
-  /** 使用後移出牌局：不進棄牌區，也不會再被洗回牌組 */
-  removeAfterPlay?: boolean;
+  /** 使用後移出牌局：不進棄牌區，也不會再被洗回牌組（也可以寫成函式，依使用次數等條件決定） */
+  removeAfterPlay?: boolean | ((g: Game, u: Unit) => boolean);
   onDiscard?(g: Game, u: Unit, card: CardInst): Eff;
 }
 
@@ -53,6 +53,8 @@ export interface CharDef {
   /** 可以使用壓在下方的牌（葛蘭妮） */
   canPlayUnder?: boolean;
   underName?: string; // 下方牌堆的名稱，例如「吞噬」
+  /** [救治]不限次數：不佔用、也不消耗一局一次的額度 */
+  rescueUnlimited?: boolean;
   abilities: AbilityDef[];
   deck: [string, number][];
   hooks?: {
@@ -82,6 +84,10 @@ export interface CharDef {
     onAllyShuffle?(g: Game, u: Unit, shuffled: Unit): void;
     /** 任一單位進入[重創]之後；u = 擁有此能力的單位，target = 進入[重創]的單位 */
     onUnitCritical?(g: Game, u: Unit, target: Unit): void;
+    /** 我方（任一單位）實際回復 HP 之後；u = 擁有此能力的單位，healed = 被治療的單位，amount = 實際回復量 */
+    onAllyHeal?(g: Game, u: Unit, healed: Unit, amount: number): void;
+    /** SP 加減（例如「隊友有[聖環]時 SP -1」） */
+    spDelta?(g: Game, u: Unit): number;
     /** 自己的回合結束時（切換到下一位玩家之前），可以回傳 Eff 讓玩家做選擇 */
     onOwnTurnEnd?(g: Game, u: Unit): Eff | void;
     /** 這個角色能指定的敵方單位（沒寫就是 SP 限制）；主動攻擊、卡牌指定敵方都用這個 */
@@ -110,6 +116,15 @@ export function registerChar(c: CharDef, cards: CardDef[]) {
  * 掛在單位 counters 上的共用狀態（例如[墬淵]）：畫面會自動顯示成徽章，
  * 不需要在畫面寫任何角色專屬的判斷。
  */
-export interface StatusDef { id: string; name: string }
+export interface StatusDef {
+  id: string;
+  name: string;
+  /** 治療加成：這個單位被治療時額外回復的量（例如[聖環]的「受到治療時回復 1 HP」） */
+  healBonus?(g: Game, u: Unit): number;
+  /** 自己回合開始時（抽牌前） */
+  onTurnStart?(g: Game, u: Unit): void;
+  /** 自己回合結束時（切換到下一位玩家之前） */
+  onTurnEnd?(g: Game, u: Unit): void;
+}
 export const STATUS_DEFS: Record<string, StatusDef> = {};
 export function registerStatus(s: StatusDef) { STATUS_DEFS[s.id] = s; }
