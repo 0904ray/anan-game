@@ -54,7 +54,7 @@ function cardHtml(id: string): string {
     ${slot >= 0 ? `<span class="sel-badge">${slot === 0 ? '左' : '右'}</span>` : ''}
     <span class="sel-name">${esc(c.name)}</span>
     <span class="sel-title">${esc(c.title)}</span>
-    <span class="sel-stats">HP ${c.hp}｜AP ${c.ap}｜TP ${c.tp}｜${c.atText ?? `AT ${c.at}`}</span>
+    <span class="sel-stats">HP ${c.hp}｜${c.costAs === 'hand' ? 'HS X' : `AP ${c.ap}`}｜TP ${c.tp}｜${c.atText ?? `AT ${c.at}`}</span>
   </button>`;
 }
 
@@ -63,13 +63,13 @@ function detailHtml(id: string | null): string {
   const c = CHAR_DEFS[id];
   const deck = c.deck.map(([defId, n]) => {
     const d = CARD_DEFS[defId];
-    return `<div class="sel-deckrow" data-zoom="${defId}"><span class="cost">${d.cost}</span><div><b>${esc(d.name)}</b> ×${n}<div class="txt">${d.drawText ? `<span class="drw">${kwSpan('（抽出時）')}${richText(d.drawText)}</span> ` : ''}${richText(d.text)}${d.discardText ? `<span class="dis">${kwSpan('（棄置時）')}${richText(d.discardText)}</span>` : ''}</div></div></div>`;
+    return `<div class="sel-deckrow" data-zoom="${defId}"><span class="cost ${c.costAs === 'hand' ? 'hs' : ''}">${c.costAs === 'hand' ? 'HS' : ''}${d.cost}</span><div><b>${esc(d.name)}</b> ×${n}<div class="txt">${d.drawText ? `<span class="drw">${kwSpan('（抽出時）')}${richText(d.drawText)}</span> ` : ''}${richText(d.text)}${d.discardText ? `<span class="dis">${kwSpan('（棄置時）')}${richText(d.discardText)}</span>` : ''}</div></div></div>`;
   }).join('');
   const total = c.deck.reduce((s, [, n]) => s + n, 0);
   return `<div style="--theme:${themeOf(id)}">
     <h3>${esc(c.name)}</h3>
     <div class="tag">${esc(c.title)}</div>
-    <div class="sel-statline">HP ${c.hp}　AP ${c.ap}　TP ${c.tp}　${c.atText ? `${c.atText} × AP ${c.atkCost}` : c.noAttack ? `AT ${c.at}（不能普攻）` : `AT ${c.at} × AP ${c.atkCost}`}</div>
+    <div class="sel-statline">HP ${c.hp}　${c.costAs === 'hand' ? 'HS X' : `AP ${c.ap}`}　TP ${c.tp}　${c.atText ? `${c.atText}${c.attackCostText ? ` × HS ${c.attackCostText}` : ` × AP ${c.atkCost}`}` : c.noAttack ? `AT ${c.at}（不能普攻）` : `AT ${c.at} × AP ${c.atkCost}`}</div>
     <h4>能力</h4>
     ${c.abilities.map((a, i) => `<div class="ab"><b>${i + 1}. ${esc(a.name)}</b>${a.active ? '<span class="act">主動</span>' : ''}：${richText(a.text)}</div>`).join('')}
     <h4>牌組（${total} 張）</h4>

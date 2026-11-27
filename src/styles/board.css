@@ -137,3 +137,4 @@
 .underitem { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .hint2 { font-size: 18px; color: #a8957a; }
 .underlist .item { padding: 8px 16px; border-radius: 10px; border: 2px solid #6b5230; background: #2a1f15; font-size: 22px; }
+.showcard .cost.hs { font-size: 10px; letter-spacing: -0.5px; }

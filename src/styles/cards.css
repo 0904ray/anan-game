@@ -33,3 +33,5 @@
 .card .ctext.xlong { font-size: 13.5px; line-height: 1.28; }
 .showcard .ctext.long { font-size: 11px; line-height: 1.28; }
 .showcard .ctext.xlong { font-size: 9.5px; line-height: 1.25; }
+/* 手牌費用（HS）：角標文字比較長，縮小字級才放得進圓圈 */
+.card .cost.hs { font-size: 15px; letter-spacing: -1px; }

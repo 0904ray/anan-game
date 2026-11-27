@@ -4,6 +4,11 @@ import type { Game } from './game';
 /** 效果是 generator：遇到需要玩家選擇時 yield 一個 Prompt，拿到答案再繼續 */
 export type Eff<T = void> = Generator<Prompt, T, any>;
 
+/** 手牌費用的支付明細：哪個單位各付了幾張（異端物用） */
+export interface HandPaid { unitId: string; n: number }
+/** 打出卡牌時附帶的支付資訊（目前只有手牌費用） */
+export interface PlayPay { handPaid?: HandPaid[] }
+
 export interface CardDef {
   id: string;
   charId: string;
@@ -13,7 +18,7 @@ export interface CardDef {
   /** 依情況變動的費用（沒寫就是 cost） */
   costFor?(g: Game, u: Unit): number;
   discardText?: string;  // (棄置時) 效果說明
-  play(g: Game, u: Unit): Eff;
+  play(g: Game, u: Unit, pay?: PlayPay): Eff;
   /** (抽出時) 效果說明：卡面會畫在效果文字前面，寫法和 discardText 一樣 */
   drawText?: string;
   /** (抽出時) 抽到手上的當下結算（含開局抽牌）；不是 generator，不能要求玩家選擇 */
@@ -65,6 +70,10 @@ export interface CharDef {
   unyielding?: boolean;
   /** 選角畫面的 AT 顯示文字（AT 會變動的角色用，例如「AT X（＝當前 TP）」） */
   atText?: string;
+  /** 卡牌費用改用「手牌數」支付（HS）：不花 AP，打出時從我方手牌移除等同費用的牌 */
+  costAs?: 'hand';
+  /** 畫面上[主動攻擊]按鈕的花費文字（沒寫就是 AP 花費數字，例如異端物的「全手牌」） */
+  attackCostText?: string;
   abilities: AbilityDef[];
   deck: [string, number][];
   hooks?: {
@@ -102,6 +111,14 @@ export interface CharDef {
     onUnitWounded?(g: Game, u: Unit, target: Unit): void;
     /** 自己[打擊]自己（「打擊自身」）時的傷害設定；沒寫就是一般[打擊]的傷害 */
     selfHit?(g: Game, u: Unit): { power: number; noWoundBonus?: boolean };
+    /** 自訂[主動攻擊]的整個流程（不是單體[打擊]的角色用）；回傳 true 表示已經處理完，核心不再選目標 */
+    attack?(g: Game, u: Unit): Eff<boolean>;
+    /** 自己回合開始的正常[起手抽牌]要抽幾張（沒寫就是 1） */
+    turnStartDraw?(g: Game, u: Unit): number;
+    /** 我方單位（ally）回合開始、正常抽牌之前；回傳 true 表示已取代這次抽牌（例如改成檢索），不再正常抽牌 */
+    onAllyStartDraw?(g: Game, u: Unit, ally: Unit): Eff<boolean>;
+    /** 一次手牌被[移除]至棄牌區之後（支付手牌費用、掃場等）；u = 擁有此能力的單位，removals = 哪些單位各被移除幾張 */
+    onHandRemoved?(g: Game, u: Unit, removals: HandPaid[]): void;
     /** SP 加減（例如「隊友有[聖環]時 SP -1」） */
     spDelta?(g: Game, u: Unit): number;
     /** 自己的回合結束時（切換到下一位玩家之前），可以回傳 Eff 讓玩家做選擇 */

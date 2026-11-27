@@ -5,3 +5,4 @@ import './saviel';
 import './ranis';
 import './mia';
 import './liliante';
+import './heretic';
