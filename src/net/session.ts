@@ -108,13 +108,25 @@ export class HostSession implements Session {
   private guestName = '對手';
   private teams: [Team | null, Team | null] = [null, null];
 
+  private closed = false;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
+
   constructor(public code: string, private myName: string, private ev: SessionEvents) {
     this.peer = new Peer(PEER_ID_PREFIX + code, peerOptions());
     ev.onStatus('正在建立房間…');
-    this.peer.on('open', () => ev.onStatus(`房間已建立，房號 ${code}，等待對手加入…`));
+    this.peer.on('open', () => {
+      if (!this.conn?.open) ev.onStatus(`房間已建立，房號 ${code}，等待對手加入…`);
+    });
+    // 手機切到背景（例如去 LINE 傳房號）時，和連線伺服器的連線常常會斷：自動重連，房號不變
+    this.peer.on('disconnected', () => this.reconnectSoon());
+    document.addEventListener('visibilitychange', this.onVisible);
     this.peer.on('error', (e: any) => {
-      if (e?.type === 'unavailable-id') ev.onError('這個房號已被使用，請換一個');
-      else ev.onError('連線錯誤：' + (e?.type ?? e));
+      const t = e?.type;
+      if (t === 'unavailable-id') ev.onError('這個房號已被使用，請換一個');
+      // 有人加入到一半就離開（或連不上）：房間還在，不算錯誤
+      else if (t === 'peer-unavailable') { if (!this.conn?.open) ev.onStatus(`有人嘗試加入但中途斷線，請對方再按一次「加入」（房號 ${code}）`); }
+      else if (t === 'network' || t === 'server-error' || t === 'socket-error' || t === 'socket-closed' || t === 'disconnected') this.reconnectSoon();
+      else ev.onError('連線錯誤：' + (t ?? e));
     });
     this.peer.on('connection', c => {
       if (this.conn && this.conn.open) { c.on('open', () => { c.send({ type: 'error', text: '房間已滿' }); setTimeout(() => c.close(), 500); }); return; }
@@ -122,6 +134,18 @@ export class HostSession implements Session {
       c.on('data', d => this.onMsg(d as Msg));
       c.on('close', () => ev.onStatus('對手已離線'));
     });
+  }
+  private onVisible = () => { if (!document.hidden && this.peer.disconnected) this.reconnectSoon(0); };
+  /** 和連線伺服器斷線時重連（每 2 秒試一次，直到連上或關閉房間） */
+  private reconnectSoon(delay = 1000) {
+    if (this.closed || this.peer.destroyed || this.retryTimer) return;
+    if (!this.conn?.open) this.ev.onStatus(`和連線伺服器斷線，重新連線中…（房號 ${this.code}）`);
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      if (this.closed || this.peer.destroyed || !this.peer.disconnected) return;
+      try { this.peer.reconnect(); } catch { /* 下一次 disconnected／error 會再排 */ }
+      setTimeout(() => { if (this.peer.disconnected) this.reconnectSoon(2000); }, 4000);
+    }, delay);
   }
   private sendGuest(m: Msg) { this.conn?.send(m); }
   private onMsg(m: Msg) {
@@ -182,7 +206,12 @@ export class HostSession implements Session {
   }
   rematch() { this.start(); }
   reselect() { this.askTeams(); }
-  close() { this.conn?.close(); this.peer.destroy(); }
+  close() {
+    this.closed = true;
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    document.removeEventListener('visibilitychange', this.onVisible);
+    this.conn?.close(); this.peer.destroy();
+  }
 }
 
 export class GuestSession implements Session {
@@ -190,31 +219,60 @@ export class GuestSession implements Session {
   private peer: Peer;
   private conn: DataConnection | null = null;
 
-  constructor(code: string, private myName: string, ev: SessionEvents) {
+  private closed = false;
+  private tries = 0;
+  private static readonly MAX_TRIES = 5;
+
+  constructor(private code: string, private myName: string, private ev: SessionEvents) {
     this.peer = new Peer(peerOptions());
     ev.onStatus('正在連線…');
-    this.peer.on('open', () => {
-      const c = this.peer.connect(PEER_ID_PREFIX + code, { reliable: true });
-      this.conn = c;
-      c.on('open', () => { ev.onStatus('已連上房間'); c.send({ type: 'hello', name: this.myName } satisfies Msg); });
-      c.on('data', d => {
-        const m = d as Msg;
-        if (m.type === 'state') ev.onState(m.view, m.me);
-        else if (m.type === 'needTeam') ev.onNeedTeam();
-        else if (m.type === 'status') ev.onStatus(m.text);
-        else if (m.type === 'error') ev.onError(m.text);
-      });
-      c.on('close', () => ev.onStatus('與房主的連線中斷'));
-    });
+    this.peer.on('open', () => { if (!this.conn) this.connect(); });
+    this.peer.on('disconnected', () => { if (!this.closed && !this.conn?.open) setTimeout(() => { if (!this.closed && this.peer.disconnected) this.peer.reconnect(); }, 1000); });
     this.peer.on('error', (e: any) => {
-      if (e?.type === 'peer-unavailable') ev.onError('找不到這個房間，請確認房號');
+      if (e?.type === 'peer-unavailable') this.retry('unavailable');
+      else if (e?.type === 'network' || e?.type === 'server-error' || e?.type === 'socket-error') this.retry('timeout');
       else ev.onError('連線錯誤：' + (e?.type ?? e));
     });
+  }
+  /** 連到房主；10 秒內沒連上就重試（房主可能剛好切到背景、正在重連） */
+  private connect() {
+    if (this.closed) return;
+    const c = this.peer.connect(PEER_ID_PREFIX + this.code, { reliable: true });
+    this.conn = c;
+    const timer = setTimeout(() => { if (!c.open && this.conn === c) { c.close(); this.retry('timeout'); } }, 10000);
+    c.on('open', () => {
+      clearTimeout(timer);
+      this.tries = 0;
+      this.ev.onStatus('已連上房間');
+      c.send({ type: 'hello', name: this.myName } satisfies Msg);
+    });
+    c.on('data', d => {
+      const m = d as Msg;
+      if (m.type === 'state') this.ev.onState(m.view, m.me);
+      else if (m.type === 'needTeam') this.ev.onNeedTeam();
+      else if (m.type === 'status') this.ev.onStatus(m.text);
+      else if (m.type === 'error') this.ev.onError(m.text);
+    });
+    let wasOpen = false;
+    c.on('open', () => { wasOpen = true; });
+    c.on('close', () => { clearTimeout(timer); if (!this.closed && wasOpen) this.ev.onStatus('與房主的連線中斷'); });
+  }
+  private retry(why: 'unavailable' | 'timeout') {
+    if (this.closed) return;
+    this.tries++;
+    if (this.tries < GuestSession.MAX_TRIES) {
+      this.ev.onStatus(`${why === 'unavailable' ? '找不到房間' : '還連不上房主'}，重試中（${this.tries}/${GuestSession.MAX_TRIES - 1}）…`);
+      setTimeout(() => this.connect(), 2500);
+      return;
+    }
+    this.ev.onError(why === 'unavailable'
+      ? `找不到房間 ${this.code}：請確認房號，並請房主回到遊戲畫面（房主切到別的 App 太久會斷線）`
+      : '連不上房主：可能是網路擋住了端對端連線。可以試試兩邊連同一個 Wi‑Fi，或換一個網路（例如改用行動網路）');
   }
   private sendHost(m: Msg) { this.conn?.send(m); }
   send(a: Action) { this.sendHost({ type: 'action', action: a }); }
   submitTeam(team: Team) { this.sendHost({ type: 'team', team }); }
   rematch() { this.sendHost({ type: 'rematch' }); }
   reselect() { this.sendHost({ type: 'reselect' }); }
-  close() { this.conn?.close(); this.peer.destroy(); }
+  close() { this.closed = true; this.conn?.close(); this.peer.destroy(); }
 }

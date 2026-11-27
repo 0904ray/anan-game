@@ -23,7 +23,7 @@ export function renderLobby(status = '', roomCode = '') {
         <button class="btn ghost" data-act="hotseat">本機雙人（同一台輪流）</button>
         ${ONLINE_OK ? '' : '<div class="note">這個預覽版不能連線對戰，請先玩「對戰電腦」或「本機雙人」</div>'}
       </div>
-      ${roomCode ? `<div class="roomcode">${roomCode}</div>` : ''}
+      ${roomCode ? `<div class="roomcode">${roomCode}</div><div class="roomhint">把房號傳給對手後，請回到這個畫面等候（切出去太久會斷線，回來會自動重連）</div>` : ''}
       <div class="status">${esc(status)}</div>
       ${roomCode ? `<button class="btn ghost small" data-act="lobby">取消</button>` : ''}
     </div>
