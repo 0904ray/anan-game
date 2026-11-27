@@ -831,7 +831,10 @@ export class Game {
     if (bonus) this.log(`${tgt.name} 身上的狀態讓這次攻擊 +${bonus}`, src.owner);
     if (tgt.life === 'dying') {
       const dmg = Math.max(0, base + bonus - tgt.dmgReduce);
-      const loss = 1 + Math.floor(dmg / 4);
+      let loss = 1 + Math.floor(dmg / 4);
+      // 角色對「[瀕死]時受到攻擊扣 TP」的修正（例如休姆的[赦免]）：只套用在攻擊，不套用在付費或 -X TP 的效果
+      const adj = CHAR_DEFS[tgt.charId].hooks?.dyingTpLoss?.(this, tgt, loss);
+      if (adj !== undefined) loss = Math.max(0, adj);
       this.log(`${tgt.name}（瀕死）受到攻擊，TP -${loss}`, src.owner);
       this.dyingTpLoss(tgt, loss);
       return 0;
@@ -998,12 +1001,11 @@ export class Game {
       this.fx({ t: 'status', unitId: u.id, text: '不受處決' });
       return;
     }
-    this.dyingTpLoss(u, u.tp, true);
+    this.dyingTpLoss(u, u.tp);
   }
 
-  /** [瀕死]單位減少 TP。execution = 這是[處決]，不套用角色對 TP 減少量的修正 */
-  private dyingTpLoss(u: Unit, n: number, execution = false) {
-    if (!execution) n = Math.max(0, CHAR_DEFS[u.charId].hooks?.dyingTpLoss?.(this, u, n) ?? n);
+  /** [瀕死]單位減少 TP（攻擊、付費、-X TP 的效果、[處決]都走這裡）；TP 歸零就被[處決] */
+  private dyingTpLoss(u: Unit, n: number) {
     u.tp -= n;
     this.fx({ t: 'tp', unitId: u.id, amount: n });
     if (u.tp <= 0) {

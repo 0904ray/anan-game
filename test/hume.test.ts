@@ -485,3 +485,19 @@ describe('休姆：牌', () => {
     expect(sin(g, E)).toBe(1);
   });
 });
+
+describe('正規化：[赦免]的[瀕死]減免只套用在攻擊', () => {
+  it('【不滅教義】[審判]的 -5 TP 不會被[赦免]減少，也不會用掉本回合的減免', () => {
+    const g = newGame(['hume', 'savanna'], 1);
+    const h = g.state.players[0].units[0];
+    g.addCounter(h, 'pardon', 4); // 每回合第一次受到攻擊時 TP 減少量 -2
+    g.enterDying(h);
+    while (g.state.prompt) g.apply(g.state.prompt.player, { type: 'answer', value: g.state.prompt.kind === 'unit' ? (g.state.prompt as any).unitIds[0] : 0 });
+    h.tp = 20; h.ap = 7;
+    const uid = give(g, h.id, 'hum_doctrine');
+    expect(g.apply(0, { type: 'play', unitId: h.id, cardUid: uid }).ok).toBe(true);
+    expect(h.tp).toBe(15); // 付了完整的 5 TP
+    expect(h.life).toBe('alive');
+    expect(g.counter(h, 'pardonCut')).not.toBe(g.state.turn); // 減免還沒用掉
+  });
+});

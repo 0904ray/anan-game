@@ -142,7 +142,7 @@ export interface CharDef {
     canBeExecuted?(g: Game, u: Unit): boolean;
     /** 這個單位受到傷害前修正傷害量（已含[負傷]增傷、減傷）；回傳新的傷害 */
     incomingDamage?(g: Game, u: Unit, dmg: number): number;
-    /** [瀕死]單位要減少 TP 前修正減少量（例如[赦免]）；回傳新的減少量。處決不走這裡 */
+    /** [瀕死]單位受到攻擊、要減少 TP 前修正減少量（例如[赦免]）；回傳新的減少量。付費、-X TP 的效果、[處決]都不走這裡 */
     dyingTpLoss?(g: Game, u: Unit, loss: number): number;
     /** 這個單位進入[瀕死]的當下（同步函式裡，不能要求選擇）：通常用 g.queueTrigger 排延後觸發 */
     onEnterDying?(g: Game, u: Unit): void;

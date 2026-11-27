@@ -149,7 +149,7 @@ export function kwSpan(word: string, self?: string): string {
 }
 export function richText(text: string, self?: string): string {
   return esc(text).replace(kwPattern(), (_m, br?: string, card?: string, plain?: string) =>
-    card !== undefined ? `<span class="kw kw-card">【${card}】</span>` : kwSpan(br ?? plain!, self));
+    card !== undefined ? `<span class="kw kw-card">【${card}】</span>` : kwSpan(br ?? plain!, self)).replace(/\n/g, '<br>'); // 卡面文字的 \n 換行（例如休姆的[審判]另起一行）
 }
 /** 一段文字裡出現的詞條（有說明的、依出現順序、不重複） */
 export function keywordsIn(text: string): string[] {
